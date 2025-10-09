@@ -1,6 +1,7 @@
 # Database Track Documentation - IDS-AI System
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Database Design Philosophy](#database-design-philosophy)
 3. [Schema Architecture](#schema-architecture)
@@ -21,6 +22,7 @@
 The database layer serves as the persistent storage foundation for the IDS-AI system, designed to handle high-volume network flow data, real-time attack alerts, user management, and comprehensive audit trails. PostgreSQL was chosen for its advanced features, JSON support, and excellent performance characteristics.
 
 ### Key Requirements
+
 - **High Throughput**: Handle thousands of network flows per second
 - **Real-time Queries**: Sub-second response times for alert retrieval
 - **Data Integrity**: ACID compliance for critical security data
@@ -31,17 +33,20 @@ The database layer serves as the persistent storage foundation for the IDS-AI sy
 ## Database Design Philosophy
 
 ### ACID Compliance
+
 - **Atomicity**: All database operations are atomic, ensuring data consistency
 - **Consistency**: Database constraints maintain data integrity
 - **Isolation**: Concurrent operations don't interfere with each other
 - **Durability**: Committed data survives system failures
 
 ### Normalization Strategy
+
 - **3NF Compliance**: Eliminate data redundancy while maintaining performance
 - **Selective Denormalization**: Strategic denormalization for query performance
 - **JSON Storage**: Use JSON columns for flexible, evolving data structures
 
 ### Performance-First Design
+
 - **Strategic Indexing**: Indexes optimized for common query patterns
 - **Partitioning**: Table partitioning for large datasets
 - **Connection Pooling**: Efficient database connection management
@@ -49,6 +54,7 @@ The database layer serves as the persistent storage foundation for the IDS-AI sy
 ## Schema Architecture
 
 ### Database Structure Overview
+
 ```sql
 -- Database: ids_ai_system
 -- Version: PostgreSQL 14+
@@ -88,7 +94,7 @@ CREATE TABLE users (
     locked_until TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Constraints
     CONSTRAINT users_email_check CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
     CONSTRAINT users_username_check CHECK (length(username) >= 3),
@@ -106,7 +112,7 @@ CREATE TABLE user_sessions (
     ip_address INET,
     user_agent TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Indexes
     INDEX idx_user_sessions_user_id ON user_sessions(user_id),
     INDEX idx_user_sessions_expires ON user_sessions(expires_at),
@@ -119,7 +125,7 @@ CREATE TABLE role_permissions (
     role user_role NOT NULL,
     permission VARCHAR(100) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Unique constraint
     UNIQUE(role, permission)
 );
@@ -151,7 +157,7 @@ CREATE TABLE attack_types (
     mitigation_steps TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Indexes
     INDEX idx_attack_types_category ON attack_types(category),
     INDEX idx_attack_types_severity ON attack_types(severity_level)
@@ -187,16 +193,16 @@ CREATE TABLE flows (
     total_bwd_packets INTEGER,
     total_length_fwd_packets BIGINT,
     total_length_bwd_packets BIGINT,
-    
+
     -- Feature data (JSON for flexibility)
     features JSONB NOT NULL,
     raw_features JSONB,
-    
+
     -- Metadata
     captured_at TIMESTAMP WITH TIME ZONE NOT NULL,
     processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Constraints
     CONSTRAINT flows_protocol_check CHECK (protocol IN ('TCP', 'UDP', 'ICMP', 'OTHER')),
     CONSTRAINT flows_flow_id_check CHECK (length(flow_id) > 0)
@@ -214,17 +220,17 @@ BEGIN
         start_date := date_trunc('month', CURRENT_DATE) + (i || ' months')::INTERVAL;
         end_date := start_date + '1 month'::INTERVAL;
         table_name := 'flows_' || to_char(start_date, 'YYYY_MM');
-        
-        EXECUTE format('CREATE TABLE %I PARTITION OF flows 
+
+        EXECUTE format('CREATE TABLE %I PARTITION OF flows
                        FOR VALUES FROM (%L) TO (%L)',
                        table_name, start_date, end_date);
-                       
+
         -- Create indexes on each partition
-        EXECUTE format('CREATE INDEX %I ON %I (src_ip, dst_ip)', 
+        EXECUTE format('CREATE INDEX %I ON %I (src_ip, dst_ip)',
                        'idx_' || table_name || '_src_dst', table_name);
-        EXECUTE format('CREATE INDEX %I ON %I (captured_at)', 
+        EXECUTE format('CREATE INDEX %I ON %I (captured_at)',
                        'idx_' || table_name || '_captured', table_name);
-        EXECUTE format('CREATE INDEX %I ON %I USING GIN (features)', 
+        EXECUTE format('CREATE INDEX %I ON %I USING GIN (features)',
                        'idx_' || table_name || '_features', table_name);
     END LOOP;
 END $$;
@@ -253,28 +259,28 @@ CREATE TABLE alerts (
     attack_type_id INTEGER NOT NULL REFERENCES attack_types(id),
     prediction_confidence DECIMAL(5,4) NOT NULL CHECK (prediction_confidence BETWEEN 0 AND 1),
     risk_level risk_level NOT NULL,
-    
+
     -- Network details
     src_ip INET NOT NULL,
     dst_ip INET NOT NULL,
     src_port INTEGER CHECK (src_port BETWEEN 0 AND 65535),
     dst_port INTEGER CHECK (dst_port BETWEEN 0 AND 65535),
     protocol VARCHAR(10),
-    
+
     -- Alert details
     attack_details JSONB,
     status alert_status NOT NULL DEFAULT 'active',
-    
+
     -- Resolution details
     resolved_by INTEGER REFERENCES users(id),
     resolution_notes TEXT,
     resolved_at TIMESTAMP WITH TIME ZONE,
-    
+
     -- Timestamps
     detected_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Constraints
     CONSTRAINT alerts_confidence_check CHECK (prediction_confidence > 0),
     CONSTRAINT alerts_resolution_check CHECK (
@@ -294,19 +300,19 @@ BEGIN
         start_date := date_trunc('month', CURRENT_DATE) + (i || ' months')::INTERVAL;
         end_date := start_date + '1 month'::INTERVAL;
         table_name := 'alerts_' || to_char(start_date, 'YYYY_MM');
-        
-        EXECUTE format('CREATE TABLE %I PARTITION OF alerts 
+
+        EXECUTE format('CREATE TABLE %I PARTITION OF alerts
                        FOR VALUES FROM (%L) TO (%L)',
                        table_name, start_date, end_date);
-                       
+
         -- Partition-specific indexes
-        EXECUTE format('CREATE INDEX %I ON %I (status, risk_level)', 
+        EXECUTE format('CREATE INDEX %I ON %I (status, risk_level)',
                        'idx_' || table_name || '_status_risk', table_name);
-        EXECUTE format('CREATE INDEX %I ON %I (src_ip)', 
+        EXECUTE format('CREATE INDEX %I ON %I (src_ip)',
                        'idx_' || table_name || '_src_ip', table_name);
-        EXECUTE format('CREATE INDEX %I ON %I (attack_type_id)', 
+        EXECUTE format('CREATE INDEX %I ON %I (attack_type_id)',
                        'idx_' || table_name || '_attack_type', table_name);
-        EXECUTE format('CREATE INDEX %I ON %I (detected_at)', 
+        EXECUTE format('CREATE INDEX %I ON %I (detected_at)',
                        'idx_' || table_name || '_detected', table_name);
     END LOOP;
 END $$;
@@ -322,7 +328,7 @@ CREATE TABLE alert_aggregations (
     avg_confidence DECIMAL(5,4),
     unique_sources INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Unique constraint to prevent duplicates
     UNIQUE(date, hour, attack_type_id, risk_level)
 );
@@ -338,21 +344,21 @@ CREATE TABLE actions (
     user_id INTEGER NOT NULL REFERENCES users(id),
     action_type action_type NOT NULL,
     target_value VARCHAR(255) NOT NULL,
-    
+
     -- Action parameters (JSON for flexibility)
     parameters JSONB,
-    
+
     -- Execution details
     status action_status NOT NULL DEFAULT 'pending',
     executed_at TIMESTAMP WITH TIME ZONE,
     expires_at TIMESTAMP WITH TIME ZONE,
     error_message TEXT,
-    
+
     -- Metadata
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Constraints
     CONSTRAINT actions_target_check CHECK (length(target_value) > 0),
     CONSTRAINT actions_execution_check CHECK (
@@ -369,13 +375,13 @@ SELECT DISTINCT
     executed_at as blocked_at,
     expires_at,
     parameters->>'reason' as reason,
-    CASE 
+    CASE
         WHEN expires_at IS NULL THEN true
         WHEN expires_at > NOW() THEN true
         ELSE false
     END as is_active
 FROM actions
-WHERE action_type = 'block_ip' 
+WHERE action_type = 'block_ip'
   AND status = 'executed'
   AND (expires_at IS NULL OR expires_at > NOW());
 
@@ -401,21 +407,21 @@ CREATE TABLE system_logs (
     component VARCHAR(50) NOT NULL,
     event_type VARCHAR(100) NOT NULL,
     message TEXT NOT NULL,
-    
+
     -- Context data
     metadata JSONB,
     user_id INTEGER REFERENCES users(id),
     session_id UUID,
     ip_address INET,
     user_agent TEXT,
-    
+
     -- Request/Response data for API logs
     request_id UUID,
     request_method VARCHAR(10),
     request_path VARCHAR(500),
     response_status INTEGER,
     response_time_ms INTEGER,
-    
+
     -- Timestamp
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 ) PARTITION BY RANGE (created_at);
@@ -431,17 +437,17 @@ BEGIN
         start_date := CURRENT_DATE + (i || ' days')::INTERVAL;
         end_date := start_date + '1 day'::INTERVAL;
         table_name := 'system_logs_' || to_char(start_date, 'YYYY_MM_DD');
-        
-        EXECUTE format('CREATE TABLE %I PARTITION OF system_logs 
+
+        EXECUTE format('CREATE TABLE %I PARTITION OF system_logs
                        FOR VALUES FROM (%L) TO (%L)',
                        table_name, start_date, end_date);
-                       
+
         -- Partition indexes
-        EXECUTE format('CREATE INDEX %I ON %I (log_level, component)', 
+        EXECUTE format('CREATE INDEX %I ON %I (log_level, component)',
                        'idx_' || table_name || '_level_comp', table_name);
-        EXECUTE format('CREATE INDEX %I ON %I (user_id)', 
+        EXECUTE format('CREATE INDEX %I ON %I (user_id)',
                        'idx_' || table_name || '_user', table_name);
-        EXECUTE format('CREATE INDEX %I ON %I USING GIN (metadata)', 
+        EXECUTE format('CREATE INDEX %I ON %I USING GIN (metadata)',
                        'idx_' || table_name || '_metadata', table_name);
     END LOOP;
 END $$;
@@ -456,7 +462,7 @@ CREATE TABLE security_events (
     description TEXT NOT NULL,
     details JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Index for quick security queries
     INDEX idx_security_events_type_severity ON security_events(event_type, severity),
     INDEX idx_security_events_user ON security_events(user_id),
@@ -470,27 +476,27 @@ CREATE TABLE security_events (
 
 ```sql
 -- Flow to Alert relationship (one-to-many)
-ALTER TABLE alerts ADD CONSTRAINT fk_alerts_flow_id 
-    FOREIGN KEY (flow_id) REFERENCES flows(flow_id) 
+ALTER TABLE alerts ADD CONSTRAINT fk_alerts_flow_id
+    FOREIGN KEY (flow_id) REFERENCES flows(flow_id)
     ON DELETE RESTRICT;
 
 -- Alert to Action relationship (one-to-many)
-ALTER TABLE actions ADD CONSTRAINT fk_actions_alert_id 
-    FOREIGN KEY (alert_id) REFERENCES alerts(id) 
+ALTER TABLE actions ADD CONSTRAINT fk_actions_alert_id
+    FOREIGN KEY (alert_id) REFERENCES alerts(id)
     ON DELETE SET NULL;
 
 -- User relationships
-ALTER TABLE alerts ADD CONSTRAINT fk_alerts_resolved_by 
-    FOREIGN KEY (resolved_by) REFERENCES users(id) 
+ALTER TABLE alerts ADD CONSTRAINT fk_alerts_resolved_by
+    FOREIGN KEY (resolved_by) REFERENCES users(id)
     ON DELETE SET NULL;
 
-ALTER TABLE actions ADD CONSTRAINT fk_actions_user_id 
-    FOREIGN KEY (user_id) REFERENCES users(id) 
+ALTER TABLE actions ADD CONSTRAINT fk_actions_user_id
+    FOREIGN KEY (user_id) REFERENCES users(id)
     ON DELETE RESTRICT;
 
 -- Attack type relationship
-ALTER TABLE alerts ADD CONSTRAINT fk_alerts_attack_type 
-    FOREIGN KEY (attack_type_id) REFERENCES attack_types(id) 
+ALTER TABLE alerts ADD CONSTRAINT fk_alerts_attack_type
+    FOREIGN KEY (attack_type_id) REFERENCES attack_types(id)
     ON DELETE RESTRICT;
 ```
 
@@ -498,24 +504,24 @@ ALTER TABLE alerts ADD CONSTRAINT fk_alerts_attack_type
 
 ```sql
 -- Check constraints for data validation
-ALTER TABLE alerts ADD CONSTRAINT check_alert_timestamps 
+ALTER TABLE alerts ADD CONSTRAINT check_alert_timestamps
     CHECK (resolved_at IS NULL OR resolved_at >= created_at);
 
-ALTER TABLE actions ADD CONSTRAINT check_action_expiry 
+ALTER TABLE actions ADD CONSTRAINT check_action_expiry
     CHECK (expires_at IS NULL OR expires_at > created_at);
 
-ALTER TABLE flows ADD CONSTRAINT check_flow_duration 
+ALTER TABLE flows ADD CONSTRAINT check_flow_duration
     CHECK (flow_duration IS NULL OR flow_duration >= 0);
 
 -- Unique constraints
-ALTER TABLE flows ADD CONSTRAINT unique_flow_id_date 
+ALTER TABLE flows ADD CONSTRAINT unique_flow_id_date
     UNIQUE (flow_id, created_at);
 
 -- Partial unique indexes for performance
-CREATE UNIQUE INDEX idx_users_email_active 
+CREATE UNIQUE INDEX idx_users_email_active
     ON users(email) WHERE active = true;
 
-CREATE UNIQUE INDEX idx_users_username_active 
+CREATE UNIQUE INDEX idx_users_username_active
     ON users(username) WHERE active = true;
 ```
 
@@ -525,49 +531,49 @@ CREATE UNIQUE INDEX idx_users_username_active
 
 ```sql
 -- High-frequency query indexes
-CREATE INDEX CONCURRENTLY idx_alerts_active_recent 
-    ON alerts(created_at DESC, status) 
+CREATE INDEX CONCURRENTLY idx_alerts_active_recent
+    ON alerts(created_at DESC, status)
     WHERE status = 'active';
 
-CREATE INDEX CONCURRENTLY idx_alerts_risk_level_time 
+CREATE INDEX CONCURRENTLY idx_alerts_risk_level_time
     ON alerts(risk_level, created_at DESC)
     WHERE status IN ('active', 'investigating');
 
-CREATE INDEX CONCURRENTLY idx_flows_time_src 
+CREATE INDEX CONCURRENTLY idx_flows_time_src
     ON flows(created_at DESC, src_ip);
 
-CREATE INDEX CONCURRENTLY idx_actions_active_expires 
-    ON actions(expires_at, status) 
+CREATE INDEX CONCURRENTLY idx_actions_active_expires
+    ON actions(expires_at, status)
     WHERE status = 'executed' AND expires_at IS NOT NULL;
 
 -- Composite indexes for complex queries
-CREATE INDEX CONCURRENTLY idx_alerts_composite_dashboard 
+CREATE INDEX CONCURRENTLY idx_alerts_composite_dashboard
     ON alerts(status, risk_level, attack_type_id, created_at DESC);
 
-CREATE INDEX CONCURRENTLY idx_flows_network_analysis 
+CREATE INDEX CONCURRENTLY idx_flows_network_analysis
     ON flows(src_ip, dst_ip, protocol, created_at DESC);
 
 -- GIN indexes for JSON queries
-CREATE INDEX CONCURRENTLY idx_flows_features_gin 
+CREATE INDEX CONCURRENTLY idx_flows_features_gin
     ON flows USING GIN (features);
 
-CREATE INDEX CONCURRENTLY idx_alerts_details_gin 
+CREATE INDEX CONCURRENTLY idx_alerts_details_gin
     ON alerts USING GIN (attack_details);
 
-CREATE INDEX CONCURRENTLY idx_actions_params_gin 
+CREATE INDEX CONCURRENTLY idx_actions_params_gin
     ON actions USING GIN (parameters);
 
 -- Text search indexes
-CREATE INDEX CONCURRENTLY idx_system_logs_message_search 
+CREATE INDEX CONCURRENTLY idx_system_logs_message_search
     ON system_logs USING GIN (to_tsvector('english', message));
 
 -- Partial indexes for common filters
-CREATE INDEX CONCURRENTLY idx_alerts_critical_active 
-    ON alerts(created_at DESC) 
+CREATE INDEX CONCURRENTLY idx_alerts_critical_active
+    ON alerts(created_at DESC)
     WHERE risk_level = 'critical' AND status = 'active';
 
-CREATE INDEX CONCURRENTLY idx_users_active_by_role 
-    ON users(role, created_at) 
+CREATE INDEX CONCURRENTLY idx_users_active_by_role
+    ON users(role, created_at)
     WHERE active = true;
 ```
 
@@ -576,7 +582,7 @@ CREATE INDEX CONCURRENTLY idx_users_active_by_role
 ```sql
 -- Index usage statistics
 CREATE VIEW index_usage_stats AS
-SELECT 
+SELECT
     schemaname,
     tablename,
     attname,
@@ -584,13 +590,13 @@ SELECT
     correlation,
     most_common_vals,
     most_common_freqs
-FROM pg_stats 
+FROM pg_stats
 WHERE schemaname = 'public'
 ORDER BY tablename, attname;
 
 -- Query performance monitoring
 CREATE VIEW slow_queries AS
-SELECT 
+SELECT
     query,
     calls,
     total_time,
@@ -598,18 +604,18 @@ SELECT
     min_time,
     max_time,
     stddev_time
-FROM pg_stat_statements 
+FROM pg_stat_statements
 WHERE mean_time > 100  -- Queries taking more than 100ms on average
 ORDER BY mean_time DESC;
 
 -- Table size monitoring
 CREATE VIEW table_sizes AS
-SELECT 
+SELECT
     schemaname,
     tablename,
     pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
     pg_total_relation_size(schemaname||'.'||tablename) as size_bytes
-FROM pg_tables 
+FROM pg_tables
 WHERE schemaname = 'public'
 ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ```
@@ -633,16 +639,16 @@ BEGIN
         start_date := date_trunc('month', CURRENT_DATE) + (i || ' months')::INTERVAL;
         end_date := start_date + '1 month'::INTERVAL;
         partition_name := table_name || '_' || to_char(start_date, 'YYYY_MM');
-        
+
         -- Check if partition already exists
         IF NOT EXISTS (
-            SELECT 1 FROM pg_tables 
+            SELECT 1 FROM pg_tables
             WHERE tablename = partition_name
         ) THEN
-            EXECUTE format('CREATE TABLE %I PARTITION OF %I 
+            EXECUTE format('CREATE TABLE %I PARTITION OF %I
                            FOR VALUES FROM (%L) TO (%L)',
                            partition_name, table_name, start_date, end_date);
-            
+
             RAISE NOTICE 'Created partition: %', partition_name;
         END IF;
     END LOOP;
@@ -659,10 +665,10 @@ DECLARE
     partition_record RECORD;
 BEGIN
     cutoff_date := date_trunc('month', CURRENT_DATE) - (retention_months || ' months')::INTERVAL;
-    
+
     FOR partition_record IN
-        SELECT tablename 
-        FROM pg_tables 
+        SELECT tablename
+        FROM pg_tables
         WHERE tablename LIKE table_name || '_%'
           AND tablename < table_name || '_' || to_char(cutoff_date, 'YYYY_MM')
     LOOP
@@ -764,14 +770,14 @@ ALTER USER ids_readonly CONNECTION LIMIT 20;
 
 ```sql
 -- Encrypt sensitive data using pgcrypto
-CREATE OR REPLACE FUNCTION encrypt_sensitive_data(data TEXT) 
+CREATE OR REPLACE FUNCTION encrypt_sensitive_data(data TEXT)
 RETURNS TEXT AS $$
 BEGIN
     RETURN encode(pgp_sym_encrypt(data, current_setting('app.encryption_key')), 'base64');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION decrypt_sensitive_data(encrypted_data TEXT) 
+CREATE OR REPLACE FUNCTION decrypt_sensitive_data(encrypted_data TEXT)
 RETURNS TEXT AS $$
 BEGIN
     RETURN pgp_sym_decrypt(decode(encrypted_data, 'base64'), current_setting('app.encryption_key'));
@@ -779,7 +785,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Audit trigger for sensitive tables
-CREATE OR REPLACE FUNCTION audit_trigger() 
+CREATE OR REPLACE FUNCTION audit_trigger()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO system_logs (log_level, component, event_type, message, metadata, user_id)
@@ -796,7 +802,7 @@ BEGIN
         ),
         current_setting('app.current_user_id', true)::INTEGER
     );
-    
+
     RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;
@@ -818,15 +824,15 @@ CREATE TRIGGER audit_actions AFTER INSERT OR UPDATE OR DELETE ON actions
 -- #!/bin/bash
 -- BACKUP_DIR="/opt/backups/ids_db"
 -- DATE=$(date +%Y%m%d_%H%M%S)
--- 
+--
 -- # Full database backup
 -- pg_dump -h localhost -U postgres -d ids_ai_system \
 --     -f "$BACKUP_DIR/full_backup_$DATE.sql" \
 --     --verbose --create --clean
--- 
+--
 -- # Compress backup
 -- gzip "$BACKUP_DIR/full_backup_$DATE.sql"
--- 
+--
 -- # Remove backups older than 30 days
 -- find $BACKUP_DIR -name "full_backup_*.sql.gz" -mtime +30 -delete
 
@@ -838,7 +844,7 @@ ALTER SYSTEM SET max_wal_senders = 3;
 ALTER SYSTEM SET wal_keep_segments = 32;
 
 -- Backup validation function
-CREATE OR REPLACE FUNCTION validate_backup_integrity() 
+CREATE OR REPLACE FUNCTION validate_backup_integrity()
 RETURNS TABLE(
     table_name TEXT,
     row_count BIGINT,
@@ -846,7 +852,7 @@ RETURNS TABLE(
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         t.table_name::TEXT,
         t.row_count,
         t.last_updated
@@ -884,10 +890,10 @@ BEGIN
     LEFT JOIN flows f ON a.flow_id = f.flow_id
     WHERE f.flow_id IS NULL
       AND a.created_at <= target_time;
-    
+
     consistency_check := (missing_count = 0);
-    
-    RETURN QUERY SELECT 
+
+    RETURN QUERY SELECT
         'Recovery point validation'::TEXT,
         consistency_check,
         missing_count;
@@ -902,26 +908,26 @@ $$ LANGUAGE plpgsql;
 ```sql
 -- Database health monitoring views
 CREATE VIEW db_health_summary AS
-SELECT 
+SELECT
     'Database Size' as metric,
     pg_size_pretty(pg_database_size(current_database())) as value
 UNION ALL
-SELECT 
+SELECT
     'Active Connections',
     COUNT(*)::TEXT
 FROM pg_stat_activity
 WHERE state = 'active'
 UNION ALL
-SELECT 
+SELECT
     'Cache Hit Ratio',
     ROUND(
-        100 * sum(blks_hit) / (sum(blks_hit) + sum(blks_read))::NUMERIC, 
+        100 * sum(blks_hit) / (sum(blks_hit) + sum(blks_read))::NUMERIC,
         2
     )::TEXT || '%'
 FROM pg_stat_database
 WHERE datname = current_database()
 UNION ALL
-SELECT 
+SELECT
     'Deadlocks',
     deadlocks::TEXT
 FROM pg_stat_database
@@ -929,7 +935,7 @@ WHERE datname = current_database();
 
 -- Connection monitoring
 CREATE VIEW connection_stats AS
-SELECT 
+SELECT
     usename,
     application_name,
     client_addr,
@@ -943,7 +949,7 @@ ORDER BY connection_count DESC;
 
 -- Lock monitoring
 CREATE VIEW lock_monitoring AS
-SELECT 
+SELECT
     l.mode,
     l.granted,
     l.relation::regclass as table_name,
@@ -960,7 +966,7 @@ ORDER BY l.granted, a.query_start;
 
 ```sql
 -- Automated VACUUM and ANALYZE
-CREATE OR REPLACE FUNCTION maintenance_vacuum_analyze() 
+CREATE OR REPLACE FUNCTION maintenance_vacuum_analyze()
 RETURNS VOID AS $$
 DECLARE
     table_record RECORD;
@@ -971,19 +977,19 @@ BEGIN
         WHERE schemaname = 'public'
           AND tablename NOT LIKE '%_partition_%'
     LOOP
-        EXECUTE format('VACUUM ANALYZE %I.%I', 
-                      table_record.schemaname, 
+        EXECUTE format('VACUUM ANALYZE %I.%I',
+                      table_record.schemaname,
                       table_record.tablename);
-        
-        RAISE NOTICE 'Vacuumed and analyzed: %.%', 
-                     table_record.schemaname, 
+
+        RAISE NOTICE 'Vacuumed and analyzed: %.%',
+                     table_record.schemaname,
                      table_record.tablename;
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Statistics update for query planner
-CREATE OR REPLACE FUNCTION update_table_statistics() 
+CREATE OR REPLACE FUNCTION update_table_statistics()
 RETURNS VOID AS $$
 BEGIN
     -- Update statistics for critical tables
@@ -991,46 +997,46 @@ BEGIN
     ANALYZE alerts;
     ANALYZE actions;
     ANALYZE users;
-    
+
     -- Update pg_stat_statements
     SELECT pg_stat_statements_reset();
-    
+
     RAISE NOTICE 'Statistics updated successfully';
 END;
 $$ LANGUAGE plpgsql;
 
 -- Clean up expired data
-CREATE OR REPLACE FUNCTION cleanup_expired_data() 
+CREATE OR REPLACE FUNCTION cleanup_expired_data()
 RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER := 0;
     temp_count INTEGER;
 BEGIN
     -- Clean expired user sessions
-    DELETE FROM user_sessions 
+    DELETE FROM user_sessions
     WHERE expires_at < NOW();
     GET DIAGNOSTICS temp_count = ROW_COUNT;
     deleted_count := deleted_count + temp_count;
-    
+
     -- Clean expired actions
-    UPDATE actions 
-    SET status = 'expired' 
-    WHERE status = 'executed' 
-      AND expires_at IS NOT NULL 
+    UPDATE actions
+    SET status = 'expired'
+    WHERE status = 'executed'
+      AND expires_at IS NOT NULL
       AND expires_at < NOW();
     GET DIAGNOSTICS temp_count = ROW_COUNT;
     deleted_count := deleted_count + temp_count;
-    
+
     -- Archive old system logs (move to archive table)
     INSERT INTO system_logs_archive
-    SELECT * FROM system_logs 
+    SELECT * FROM system_logs
     WHERE created_at < NOW() - INTERVAL '90 days';
-    
-    DELETE FROM system_logs 
+
+    DELETE FROM system_logs
     WHERE created_at < NOW() - INTERVAL '90 days';
     GET DIAGNOSTICS temp_count = ROW_COUNT;
     deleted_count := deleted_count + temp_count;
-    
+
     RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
@@ -1066,20 +1072,20 @@ BEGIN
     IF EXISTS (SELECT 1 FROM schema_migrations WHERE version = version_number) THEN
         RAISE EXCEPTION 'Migration % already executed', version_number;
     END IF;
-    
+
     start_time := clock_timestamp();
     sql_checksum := md5(migration_sql);
-    
+
     -- Execute migration
     EXECUTE migration_sql;
-    
+
     end_time := clock_timestamp();
     execution_time := EXTRACT(EPOCH FROM (end_time - start_time)) * 1000;
-    
+
     -- Record migration
     INSERT INTO schema_migrations (version, description, execution_time_ms, checksum)
     VALUES (version_number, migration_description, execution_time, sql_checksum);
-    
+
     RAISE NOTICE 'Migration % completed in %ms', version_number, execution_time;
 END;
 $$ LANGUAGE plpgsql;
@@ -1099,7 +1105,7 @@ BEGIN
             WHERE table_name = 'alerts' AND column_name = 'severity_score'
         ) THEN
             ALTER TABLE alerts ADD COLUMN severity_score INTEGER;
-            UPDATE alerts SET severity_score = 
+            UPDATE alerts SET severity_score =
                 CASE risk_level
                     WHEN 'low' THEN 1
                     WHEN 'medium' THEN 2
@@ -1107,12 +1113,12 @@ BEGIN
                     WHEN 'critical' THEN 4
                 END;
             ALTER TABLE alerts ALTER COLUMN severity_score SET NOT NULL;
-            
+
             -- Record migration
             INSERT INTO schema_migrations (version, description)
             VALUES ('2025.001', 'Add severity_score column to alerts');
         END IF;
-        
+
     EXCEPTION WHEN OTHERS THEN
         -- Rollback on error
         RAISE NOTICE 'Migration failed: %', SQLERRM;
@@ -1128,7 +1134,7 @@ END $$;
 ```sql
 -- Materialized views for expensive queries
 CREATE MATERIALIZED VIEW mv_alert_dashboard_stats AS
-SELECT 
+SELECT
     date_trunc('hour', created_at) as hour,
     risk_level,
     attack_type_id,
@@ -1142,7 +1148,7 @@ GROUP BY date_trunc('hour', created_at), risk_level, attack_type_id;
 CREATE UNIQUE INDEX ON mv_alert_dashboard_stats (hour, risk_level, attack_type_id);
 
 -- Refresh materialized view (scheduled every 15 minutes)
-CREATE OR REPLACE FUNCTION refresh_dashboard_stats() 
+CREATE OR REPLACE FUNCTION refresh_dashboard_stats()
 RETURNS VOID AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_alert_dashboard_stats;
@@ -1166,28 +1172,28 @@ $$ LANGUAGE plpgsql;
 
 ```sql
 -- Performance tuning recommendations
-SELECT 
+SELECT
     'shared_buffers' as setting,
     '25% of RAM' as recommended_value,
     current_setting('shared_buffers') as current_value
 UNION ALL
-SELECT 
+SELECT
     'effective_cache_size',
     '75% of RAM',
     current_setting('effective_cache_size')
 UNION ALL
-SELECT 
+SELECT
     'work_mem',
     '4MB per connection',
     current_setting('work_mem')
 UNION ALL
-SELECT 
+SELECT
     'maintenance_work_mem',
     '10% of RAM (max 2GB)',
     current_setting('maintenance_work_mem');
 
 -- Automated statistics collection
-CREATE OR REPLACE FUNCTION collect_performance_stats() 
+CREATE OR REPLACE FUNCTION collect_performance_stats()
 RETURNS TABLE(
     metric_name TEXT,
     metric_value NUMERIC,
@@ -1195,13 +1201,13 @@ RETURNS TABLE(
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         'queries_per_second'::TEXT,
-        (SELECT SUM(calls) FROM pg_stat_statements)::NUMERIC / 
+        (SELECT SUM(calls) FROM pg_stat_statements)::NUMERIC /
         EXTRACT(EPOCH FROM (NOW() - pg_postmaster_start_time())),
         NOW()
     UNION ALL
-    SELECT 
+    SELECT
         'cache_hit_ratio',
         ROUND(100 * SUM(blks_hit) / NULLIF(SUM(blks_hit) + SUM(blks_read), 0), 2),
         NOW()

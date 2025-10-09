@@ -5,9 +5,11 @@
 The **IDS integrated with AI model (Semi-IPS)** is an advanced network security system that combines artificial intelligence with intrusion detection capabilities to provide real-time network threat monitoring and response. The system is designed for local area network (LAN) deployment, capturing and analyzing network traffic flows at the router layer through SPAN/mirror ports to ensure maximum security and privacy.
 
 ### Problem Statement
+
 Modern networks face increasingly sophisticated cyber attacks that traditional signature-based intrusion detection systems cannot effectively identify. Organizations require intelligent, real-time monitoring solutions that can detect both known and unknown attack patterns while providing immediate response capabilities.
 
 ### Key Features
+
 - **AI-Powered Detection**: Machine learning model analyzes network flow features to identify attack patterns
 - **Real-time Socket Alerts**: Instant WebSocket/TCP notifications for immediate threat response
 - **Local-only Deployment**: Operates entirely within the LAN for enhanced security
@@ -16,11 +18,13 @@ Modern networks face increasingly sophisticated cyber attacks that traditional s
 - **Automated Response**: Semi-IPS functionality for network action automation
 
 ### System Architecture
+
 The system follows a layered architecture: **Network Capture → AI Analysis → Backend Processing → Database Storage → Frontend Visualization → User Actions**. This flow ensures comprehensive threat detection from packet capture to user response, with real-time socket communication enabling instant alerts across all system components.
 
 ## 2. Business Model & Use Case
 
 ### Target Organizations
+
 - **Enterprise Networks**: Companies requiring comprehensive internal network monitoring
 - **Critical Infrastructure**: Organizations with high-security requirements
 - **Educational Institutions**: Universities and schools protecting campus networks
@@ -30,21 +34,25 @@ The system follows a layered architecture: **Network Capture → AI Analysis →
 ### User Personas
 
 #### Admin
+
 - **Responsibilities**: Full system control, user management, system configuration
 - **Use Cases**: Configure security policies, manage user accounts, oversee system health
 - **Value**: Complete visibility and control over network security infrastructure
 
 #### Security Officer
+
 - **Responsibilities**: Monitor threats, investigate attacks, take defensive actions
 - **Use Cases**: Respond to alerts, block malicious IPs, analyze attack patterns
 - **Value**: Real-time threat response capabilities with detailed attack intelligence
 
 #### Viewer
+
 - **Responsibilities**: Monitor network status and view security reports
 - **Use Cases**: Track network health, view attack statistics, generate reports
 - **Value**: Network visibility without operational responsibilities
 
 ### Business Benefits
+
 - **Reduced Response Time**: Real-time alerts enable immediate threat response
 - **Enhanced Security Posture**: AI-driven detection identifies previously unknown threats
 - **Operational Efficiency**: Automated detection reduces manual monitoring overhead
@@ -52,6 +60,7 @@ The system follows a layered architecture: **Network Capture → AI Analysis →
 - **Cost Effectiveness**: Local deployment eliminates cloud dependencies and reduces operational costs
 
 ### Future Enhancements
+
 - **Full IPS Integration**: Automated blocking and network response capabilities
 - **Cloud Dashboard Option**: Remote monitoring capabilities for distributed organizations
 - **AI Model Retraining**: Continuous learning from new threat patterns
@@ -60,6 +69,7 @@ The system follows a layered architecture: **Network Capture → AI Analysis →
 ## 3. System Design
 
 ### Logical Architecture
+
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Network       │───▶│   AI Pipeline    │───▶│   Backend API   │
@@ -73,13 +83,16 @@ The system follows a layered architecture: **Network Capture → AI Analysis →
 ```
 
 ### Network Layer Implementation
+
 The system operates at the network infrastructure level, connecting to router SPAN (Switched Port Analyzer) or mirror ports to capture network traffic. This approach ensures:
+
 - **Passive Monitoring**: No impact on network performance
 - **Complete Visibility**: Access to all network traffic flows
 - **Security Isolation**: Monitoring system operates independently of production network
 - **Scalability**: Can monitor multiple network segments simultaneously
 
 ### Data Flow Pipeline
+
 1. **Traffic Capture**: Raw packets captured from SPAN/mirror ports
 2. **Flow Extraction**: Packets processed into network flow records
 3. **Feature Engineering**: ~80 statistical and behavioral features extracted per flow
@@ -91,13 +104,16 @@ The system operates at the network infrastructure level, connecting to router SP
 9. **User Response**: Security personnel can take immediate action through the interface
 
 ### Socket Integration Architecture
+
 The system implements a dual-socket architecture:
+
 - **AI-to-Backend Socket**: High-throughput connection for streaming detection results
 - **Backend-to-Frontend Socket**: Real-time dashboard updates and alert notifications
 
 ## 4. AI Model Pipeline
 
 ### Input Features (80 Initial Features)
+
 The AI model processes comprehensive network flow characteristics:
 
 ```
@@ -131,6 +147,7 @@ Advanced Statistical Features:
 ```
 
 ### Preprocessing Pipeline
+
 1. **Data Validation**: Remove invalid or incomplete flow records
 2. **Feature Scaling**: StandardScaler normalization for numerical stability
 3. **Feature Selection**: Correlation analysis and recursive feature elimination reduces 80→60 features
@@ -138,6 +155,7 @@ Advanced Statistical Features:
 5. **Data Balancing**: Ensure representative samples for both attack and normal traffic
 
 ### Model Architecture
+
 - **Algorithm**: Ensemble method combining Random Forest and Gradient Boosting
 - **Input Layer**: 60 preprocessed features
 - **Training Data**: Labeled dataset with various attack types (DDoS, Port Scan, Brute Force, etc.)
@@ -145,6 +163,7 @@ Advanced Statistical Features:
 - **Performance Metrics**: Accuracy, Precision, Recall, F1-Score, AUC-ROC
 
 ### Output Classification
+
 ```python
 {
     "prediction": "attack",  # "normal" or "attack"
@@ -157,11 +176,13 @@ Advanced Statistical Features:
 ```
 
 ### Real-time Integration
+
 Detected attacks are immediately transmitted via socket connection to the backend, ensuring zero-delay alerting and enabling rapid response capabilities.
 
 ## 5. Backend Design
 
 ### Core Responsibilities
+
 - **AI Integration**: Receive and process real-time attack detection results
 - **Data Management**: Store flow data, attacks, user actions, and system logs
 - **API Services**: Provide RESTful endpoints for frontend and external integrations
@@ -170,35 +191,38 @@ Detected attacks are immediately transmitted via socket connection to the backen
 - **Action Execution**: Network control operations (IP blocking, port management)
 
 ### Framework Selection
+
 **FastAPI** (Recommended) for high-performance async operations and automatic API documentation, with **Flask** as alternative for simpler deployment scenarios.
 
 ### API Endpoints
 
-| Endpoint | Method | Description | Request Body | Response Example |
-|----------|---------|-------------|--------------|------------------|
-| `/api/auth/login` | POST | User authentication | `{"email": "user@domain.com", "password": "secure123"}` | `{"access_token": "jwt_token", "user_role": "admin"}` |
-| `/api/auth/logout` | POST | User logout | `{"token": "jwt_token"}` | `{"message": "Logged out successfully"}` |
-| `/api/inference` | POST | Receive AI detection results | `{"flow_data": {...}, "prediction": "attack"}` | `{"status": "processed", "alert_id": 12345}` |
-| `/api/alerts` | GET | Retrieve recent alerts | `?limit=50&severity=high` | `[{"id": 1, "type": "DDoS", "timestamp": "..."}]` |
-| `/api/alerts/{id}` | GET | Get specific alert details | - | `{"id": 1, "details": {...}, "flow_data": {...}}` |
-| `/api/alerts/{id}/resolve` | POST | Mark alert as resolved | `{"resolution": "blocked_ip", "notes": "..."}` | `{"status": "resolved", "resolved_by": "admin"}` |
-| `/api/network/block-ip` | POST | Block malicious IP address | `{"ip": "192.168.1.100", "duration": 3600}` | `{"success": true, "blocked_until": "..."}` |
-| `/api/network/block-port` | POST | Block specific port | `{"port": 8080, "protocol": "tcp"}` | `{"success": true, "rule_id": "rule_001"}` |
-| `/api/network/unblock` | DELETE | Remove network blocks | `{"target": "192.168.1.100", "type": "ip"}` | `{"success": true, "removed_rules": [...]}` |
-| `/api/users` | GET | List system users (Admin only) | - | `[{"id": 1, "username": "admin", "role": "admin"}]` |
-| `/api/users` | POST | Create new user (Admin only) | `{"username": "newuser", "role": "viewer"}` | `{"id": 3, "username": "newuser", "created": true}` |
-| `/api/users/{id}` | PUT | Update user details | `{"role": "security", "active": true}` | `{"updated": true, "user": {...}}` |
-| `/api/stats/dashboard` | GET | Dashboard statistics | `{"timerange": "24h", "filters": {...}}` | `{"total_flows": 10000, "attacks": 23, "charts": [...]}` |
-| `/api/stats/attacks` | GET | Attack statistics | `{"period": "week", "group_by": "type"}` | `{"ddos": 12, "port_scan": 8, "trends": [...]}` |
-| `/api/flows` | GET | Network flow data | `{"limit": 100, "filter": "suspicious"}` | `[{"flow_id": "f1", "src_ip": "...", "features": {...}}]` |
+| Endpoint                   | Method | Description                    | Request Body                                            | Response Example                                          |
+| -------------------------- | ------ | ------------------------------ | ------------------------------------------------------- | --------------------------------------------------------- |
+| `/api/auth/login`          | POST   | User authentication            | `{"email": "user@domain.com", "password": "secure123"}` | `{"access_token": "jwt_token", "user_role": "admin"}`     |
+| `/api/auth/logout`         | POST   | User logout                    | `{"token": "jwt_token"}`                                | `{"message": "Logged out successfully"}`                  |
+| `/api/inference`           | POST   | Receive AI detection results   | `{"flow_data": {...}, "prediction": "attack"}`          | `{"status": "processed", "alert_id": 12345}`              |
+| `/api/alerts`              | GET    | Retrieve recent alerts         | `?limit=50&severity=high`                               | `[{"id": 1, "type": "DDoS", "timestamp": "..."}]`         |
+| `/api/alerts/{id}`         | GET    | Get specific alert details     | -                                                       | `{"id": 1, "details": {...}, "flow_data": {...}}`         |
+| `/api/alerts/{id}/resolve` | POST   | Mark alert as resolved         | `{"resolution": "blocked_ip", "notes": "..."}`          | `{"status": "resolved", "resolved_by": "admin"}`          |
+| `/api/network/block-ip`    | POST   | Block malicious IP address     | `{"ip": "192.168.1.100", "duration": 3600}`             | `{"success": true, "blocked_until": "..."}`               |
+| `/api/network/block-port`  | POST   | Block specific port            | `{"port": 8080, "protocol": "tcp"}`                     | `{"success": true, "rule_id": "rule_001"}`                |
+| `/api/network/unblock`     | DELETE | Remove network blocks          | `{"target": "192.168.1.100", "type": "ip"}`             | `{"success": true, "removed_rules": [...]}`               |
+| `/api/users`               | GET    | List system users (Admin only) | -                                                       | `[{"id": 1, "username": "admin", "role": "admin"}]`       |
+| `/api/users`               | POST   | Create new user (Admin only)   | `{"username": "newuser", "role": "viewer"}`             | `{"id": 3, "username": "newuser", "created": true}`       |
+| `/api/users/{id}`          | PUT    | Update user details            | `{"role": "security", "active": true}`                  | `{"updated": true, "user": {...}}`                        |
+| `/api/stats/dashboard`     | GET    | Dashboard statistics           | `{"timerange": "24h", "filters": {...}}`                | `{"total_flows": 10000, "attacks": 23, "charts": [...]}`  |
+| `/api/stats/attacks`       | GET    | Attack statistics              | `{"period": "week", "group_by": "type"}`                | `{"ddos": 12, "port_scan": 8, "trends": [...]}`           |
+| `/api/flows`               | GET    | Network flow data              | `{"limit": 100, "filter": "suspicious"}`                | `[{"flow_id": "f1", "src_ip": "...", "features": {...}}]` |
 
 ### Database Integration
+
 - **Connection Pool**: PostgreSQL connection pooling for optimal performance
 - **ORM**: SQLAlchemy for database operations and model definitions
 - **Migrations**: Alembic for database schema version control
 - **Backup Strategy**: Automated daily backups with point-in-time recovery
 
 ### Security Implementation
+
 - **JWT Authentication**: Secure token-based authentication with refresh tokens
 - **Rate Limiting**: API endpoint protection against abuse
 - **Input Validation**: Pydantic models for request/response validation
@@ -208,17 +232,20 @@ Detected attacks are immediately transmitted via socket connection to the backen
 ## 6. Frontend Design
 
 ### Technology Stack
+
 **React 18** with TypeScript for type safety, **Tailwind CSS** for styling, **Chart.js** for data visualization, and **Socket.io-client** for real-time communication.
 
 ### Application Pages
 
 #### Login Page
+
 - **Purpose**: User authentication and role-based access control
 - **Features**: Email/password login, "Remember Me" option, password reset
 - **API Integration**: `POST /api/auth/login`
 - **Security**: Input validation, secure token storage, brute force protection
 
 #### Dashboard/Overview
+
 - **Purpose**: High-level network security status and key metrics
 - **Components**:
   - Real-time attack counter and severity distribution
@@ -229,23 +256,26 @@ Detected attacks are immediately transmitted via socket connection to the backen
 - **Socket Events**: Live updates for attack counts and system status
 
 #### Real-time Alerts System
+
 - **Implementation**: Persistent notification panel with sound alerts
 - **Features**: Alert severity colors, auto-dismiss options, action buttons
 - **Socket Integration**:
+
 ```javascript
 const socket = io("ws://localhost:8000");
 socket.on("attack_detected", (data) => {
-    showAlertPopup({
-        type: data.attack_type,
-        severity: data.risk_level,
-        source_ip: data.src_ip,
-        timestamp: data.timestamp
-    });
-    playAlertSound(data.risk_level);
+  showAlertPopup({
+    type: data.attack_type,
+    severity: data.risk_level,
+    source_ip: data.src_ip,
+    timestamp: data.timestamp,
+  });
+  playAlertSound(data.risk_level);
 });
 ```
 
 #### Attacks Page (Current)
+
 - **Purpose**: Active attack monitoring and immediate response
 - **Features**:
   - Real-time attack table with filtering (type, severity, source)
@@ -256,6 +286,7 @@ socket.on("attack_detected", (data) => {
 - **Auto-refresh**: 5-second intervals with socket updates
 
 #### Attack History
+
 - **Purpose**: Historical attack analysis and trend identification
 - **Features**:
   - Date range filtering and export functionality
@@ -266,6 +297,7 @@ socket.on("attack_detected", (data) => {
 - **Performance**: Pagination and lazy loading for large datasets
 
 #### Network Actions
+
 - **Purpose**: Proactive network security management
 - **Features**:
   - IP blocking/unblocking interface
@@ -276,6 +308,7 @@ socket.on("attack_detected", (data) => {
 - **Permissions**: Security and Admin roles only
 
 #### User Management (Admin Only)
+
 - **Purpose**: System user administration
 - **Features**:
   - User creation, modification, and deactivation
@@ -285,34 +318,35 @@ socket.on("attack_detected", (data) => {
 - **API Integration**: `GET /api/users`, `POST /api/users`, `PUT /api/users/{id}`
 
 ### Socket Communication Example
+
 ```javascript
-import io from 'socket.io-client';
+import io from "socket.io-client";
 
 class AlertManager {
-    constructor() {
-        this.socket = io("ws://localhost:8000", {
-            transports: ['websocket'],
-            upgrade: false
-        });
-        
-        this.setupEventHandlers();
-    }
-    
-    setupEventHandlers() {
-        this.socket.on("attack_detected", this.handleNewAttack);
-        this.socket.on("alert_resolved", this.handleAlertResolution);
-        this.socket.on("ip_blocked", this.handleIPBlock);
-        this.socket.on("system_status", this.updateSystemStatus);
-    }
-    
-    handleNewAttack = (data) => {
-        this.showNotification({
-            title: `${data.attack_type} Attack Detected`,
-            message: `Source: ${data.src_ip}`,
-            severity: data.risk_level,
-            actions: ['Block IP', 'Investigate', 'Dismiss']
-        });
-    }
+  constructor() {
+    this.socket = io("ws://localhost:8000", {
+      transports: ["websocket"],
+      upgrade: false,
+    });
+
+    this.setupEventHandlers();
+  }
+
+  setupEventHandlers() {
+    this.socket.on("attack_detected", this.handleNewAttack);
+    this.socket.on("alert_resolved", this.handleAlertResolution);
+    this.socket.on("ip_blocked", this.handleIPBlock);
+    this.socket.on("system_status", this.updateSystemStatus);
+  }
+
+  handleNewAttack = (data) => {
+    this.showNotification({
+      title: `${data.attack_type} Attack Detected`,
+      message: `Source: ${data.src_ip}`,
+      severity: data.risk_level,
+      actions: ["Block IP", "Investigate", "Dismiss"],
+    });
+  };
 }
 ```
 
@@ -431,12 +465,14 @@ CREATE INDEX idx_logs_level ON system_logs(log_level);
 ```
 
 ### Data Relationships
+
 - **Users** have **Roles** with specific permissions
 - **Flows** generate **Alerts** when attacks are detected
 - **Alerts** trigger **Actions** performed by users
 - **All activities** are logged in **System Logs** for audit trails
 
 ### Performance Optimizations
+
 - **Partitioning**: Time-based partitioning for flows and alerts tables
 - **Indexing**: Strategic indexes on frequently queried columns
 - **Archiving**: Automated archiving of old data to maintain performance
@@ -447,81 +483,90 @@ CREATE INDEX idx_logs_level ON system_logs(log_level);
 ### Event Types
 
 #### attack_detected
+
 Emitted when the AI model identifies a new attack
+
 ```json
 {
-    "event": "attack_detected",
-    "data": {
-        "alert_id": 12345,
-        "flow_id": "flow_67890",
-        "attack_type": "DDoS",
-        "risk_level": "high",
-        "confidence": 0.95,
-        "src_ip": "192.168.1.100",
-        "dst_ip": "10.0.0.50",
-        "src_port": 54321,
-        "dst_port": 80,
-        "protocol": "TCP",
-        "timestamp": "2025-10-09T14:30:45.123Z",
-        "features": {
-            "flow_duration": 1500,
-            "total_packets": 100,
-            "bytes_per_second": 50000
-        }
+  "event": "attack_detected",
+  "data": {
+    "alert_id": 12345,
+    "flow_id": "flow_67890",
+    "attack_type": "DDoS",
+    "risk_level": "high",
+    "confidence": 0.95,
+    "src_ip": "192.168.1.100",
+    "dst_ip": "10.0.0.50",
+    "src_port": 54321,
+    "dst_port": 80,
+    "protocol": "TCP",
+    "timestamp": "2025-10-09T14:30:45.123Z",
+    "features": {
+      "flow_duration": 1500,
+      "total_packets": 100,
+      "bytes_per_second": 50000
     }
+  }
 }
 ```
 
 #### alert_resolved
+
 Emitted when a security analyst resolves an alert
+
 ```json
 {
-    "event": "alert_resolved",
-    "data": {
-        "alert_id": 12345,
-        "resolved_by": "john.doe",
-        "resolution": "false_positive",
-        "notes": "Verified as legitimate traffic from partner organization",
-        "resolved_at": "2025-10-09T14:45:30.456Z"
-    }
+  "event": "alert_resolved",
+  "data": {
+    "alert_id": 12345,
+    "resolved_by": "john.doe",
+    "resolution": "false_positive",
+    "notes": "Verified as legitimate traffic from partner organization",
+    "resolved_at": "2025-10-09T14:45:30.456Z"
+  }
 }
 ```
 
 #### ip_blocked
+
 Emitted when an IP address is blocked through network actions
+
 ```json
 {
-    "event": "ip_blocked",
-    "data": {
-        "action_id": 789,
-        "ip_address": "192.168.1.100",
-        "blocked_by": "security.officer",
-        "reason": "DDoS attack source",
-        "duration": 3600,
-        "expires_at": "2025-10-09T15:30:45.789Z",
-        "timestamp": "2025-10-09T14:30:45.789Z"
-    }
+  "event": "ip_blocked",
+  "data": {
+    "action_id": 789,
+    "ip_address": "192.168.1.100",
+    "blocked_by": "security.officer",
+    "reason": "DDoS attack source",
+    "duration": 3600,
+    "expires_at": "2025-10-09T15:30:45.789Z",
+    "timestamp": "2025-10-09T14:30:45.789Z"
+  }
 }
 ```
 
 #### system_status
+
 Periodic system health and statistics updates
+
 ```json
 {
-    "event": "system_status",
-    "data": {
-        "ai_model_status": "active",
-        "flows_per_second": 150,
-        "active_alerts": 12,
-        "blocked_ips": 5,
-        "system_load": 0.65,
-        "memory_usage": 0.45,
-        "last_update": "2025-10-09T14:30:00.000Z"
-    }
+  "event": "system_status",
+  "data": {
+    "ai_model_status": "active",
+    "flows_per_second": 150,
+    "active_alerts": 12,
+    "blocked_ips": 5,
+    "system_load": 0.65,
+    "memory_usage": 0.45,
+    "last_update": "2025-10-09T14:30:00.000Z"
+  }
 }
 ```
 
 ### Socket Implementation Benefits
+
 - **Zero Latency Alerts**: Immediate notification of security events
 - **Real-time Dashboard Updates**: Live statistics without page refresh
 - **Collaborative Response**: Multiple users see actions in real-time
@@ -529,6 +574,7 @@ Periodic system health and statistics updates
 - **Reduced Server Load**: Eliminates constant polling from frontend
 
 ### Connection Management
+
 - **Automatic Reconnection**: Client handles connection drops gracefully
 - **Authentication**: Socket connections require valid JWT tokens
 - **Room-based Broadcasting**: Role-based event filtering
@@ -536,15 +582,16 @@ Periodic system health and statistics updates
 
 ## 9. Roles & Permissions
 
-| Role | Can View Attacks | Can Take Actions | Manage Users | View Stats | System Config | Export Data |
-|------|------------------|------------------|--------------|------------|---------------|-------------|
-| Admin | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Security | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
-| Viewer | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Role     | Can View Attacks | Can Take Actions | Manage Users | View Stats | System Config | Export Data |
+| -------- | ---------------- | ---------------- | ------------ | ---------- | ------------- | ----------- |
+| Admin    | ✅               | ✅               | ✅           | ✅         | ✅            | ✅          |
+| Security | ✅               | ✅               | ❌           | ✅         | ❌            | ✅          |
+| Viewer   | ✅               | ❌               | ❌           | ✅         | ❌            | ❌          |
 
 ### Detailed Permissions
 
 #### Admin Role
+
 - **Full System Access**: Complete control over all system functions
 - **User Management**: Create, modify, and deactivate user accounts
 - **System Configuration**: Modify AI model parameters, network settings
@@ -553,6 +600,7 @@ Periodic system health and statistics updates
 - **Audit Access**: View all system logs and user activities
 
 #### Security Role
+
 - **Threat Response**: Primary role for handling security incidents
 - **Investigation Tools**: Access to detailed attack analysis and flow data
 - **Network Actions**: IP/port blocking capabilities with approval workflows
@@ -561,6 +609,7 @@ Periodic system health and statistics updates
 - **Limited Administration**: Cannot modify users or system settings
 
 #### Viewer Role
+
 - **Read-Only Access**: Monitor security status without modification rights
 - **Dashboard Viewing**: Access to real-time and historical dashboards
 - **Alert Monitoring**: View active and resolved alerts
@@ -568,6 +617,7 @@ Periodic system health and statistics updates
 - **No Actions**: Cannot block IPs, modify settings, or resolve alerts
 
 ### Permission Enforcement
+
 - **Frontend**: UI elements hidden/disabled based on user role
 - **Backend**: API endpoints validate user permissions before execution
 - **Database**: Row-level security policies enforce data access controls
@@ -576,6 +626,7 @@ Periodic system health and statistics updates
 ## 10. Tech Stack
 
 ### Frontend Technologies
+
 - **React 18**: Modern component-based UI framework with hooks
 - **TypeScript**: Type-safe JavaScript for enhanced code quality
 - **Tailwind CSS**: Utility-first CSS framework for rapid styling
@@ -586,6 +637,7 @@ Periodic system health and statistics updates
 - **React Query**: Server state management and caching
 
 ### Backend Technologies
+
 - **FastAPI**: High-performance async Python web framework
 - **Socket.io**: Real-time bidirectional event-based communication
 - **SQLAlchemy**: Python SQL toolkit and Object-Relational Mapping
@@ -595,11 +647,13 @@ Periodic system health and statistics updates
 - **Uvicorn**: ASGI server for FastAPI applications
 
 ### Database
+
 - **PostgreSQL 14+**: Advanced open-source relational database
 - **pgAdmin**: Database administration and management tool
 - **Connection Pooling**: PgBouncer for optimized database connections
 
 ### AI/ML Stack
+
 - **Python 3.9+**: Primary language for AI pipeline
 - **Scikit-learn**: Machine learning library for model training
 - **Pandas**: Data manipulation and analysis
@@ -608,6 +662,7 @@ Periodic system health and statistics updates
 - **CICFlowMeter**: Network flow feature extraction tool
 
 ### Infrastructure & Deployment
+
 - **Docker**: Containerization for consistent deployment
 - **Docker Compose**: Multi-container application orchestration
 - **Nginx**: Reverse proxy and load balancer
@@ -616,6 +671,7 @@ Periodic system health and statistics updates
 - **Prometheus**: Metrics collection and monitoring
 
 ### Development Tools
+
 - **Git**: Version control system
 - **VS Code**: Primary development environment
 - **ESLint**: JavaScript/TypeScript code linting
@@ -624,6 +680,7 @@ Periodic system health and statistics updates
 - **Pytest**: Python testing framework
 
 ### Security Tools
+
 - **SSL/TLS**: Encrypted communication protocols
 - **Fail2ban**: Intrusion prevention software
 - **Firewall**: Network access control
@@ -632,84 +689,103 @@ Periodic system health and statistics updates
 ## 11. Timeline (12-Week Plan)
 
 ### Phase 1: Research & Foundation (Weeks 1-2)
+
 **Week 1: Project Setup & Research**
+
 - Literature review of IDS/IPS systems and AI applications
 - Dataset acquisition and analysis (CICIDS2017, NSL-KDD)
 - Technology stack finalization and environment setup
 - Team role assignments and communication protocols
 
 **Week 2: Data Analysis & Feature Engineering**
+
 - Exploratory data analysis of network flow datasets
 - Feature importance analysis and selection methodology
 - Data preprocessing pipeline design
 - Initial AI model architecture planning
 
 ### Phase 2: AI Model Development (Weeks 3-4)
+
 **Week 3: Model Training & Validation**
+
 - Implement feature extraction pipeline (80→60 features)
 - Train multiple ML models (Random Forest, SVM, Neural Networks)
 - Cross-validation and hyperparameter tuning
 - Model performance evaluation and comparison
 
 **Week 4: Model Optimization & Integration**
+
 - Final model selection and optimization
 - Real-time inference pipeline development
 - Socket communication setup for AI-to-Backend
 - Model serialization and deployment preparation
 
 ### Phase 3: Backend Development (Weeks 5-6)
+
 **Week 5: Core Backend Infrastructure**
+
 - FastAPI application structure and configuration
 - Database schema implementation with PostgreSQL
 - User authentication and JWT token management
 - Basic API endpoints for user management
 
 **Week 6: Advanced Backend Features**
+
 - Socket.io integration for real-time communication
 - Alert processing and storage systems
 - Network action implementation (IP/port blocking)
 - API documentation and testing setup
 
 ### Phase 4: Frontend Development (Weeks 7-8)
+
 **Week 7: Core UI Components**
+
 - React application setup with TypeScript
 - Authentication system and routing
 - Dashboard layout and basic components
 - Socket.io client integration
 
 **Week 8: Advanced Frontend Features**
+
 - Real-time alert system implementation
 - Data visualization with Chart.js
 - Attack management and network action interfaces
 - User management interface (Admin only)
 
 ### Phase 5: Integration & Testing (Weeks 9-10)
+
 **Week 9: System Integration**
+
 - End-to-end system integration testing
 - AI model to frontend data flow validation
 - Socket communication testing and optimization
 - Database performance testing and optimization
 
 **Week 10: Comprehensive Testing**
+
 - Unit testing for all components
 - Integration testing for API endpoints
 - Load testing for real-time socket connections
 - Security testing and vulnerability assessment
 
 ### Phase 6: Documentation & Deployment (Weeks 11-12)
+
 **Week 11: Documentation & Demo Preparation**
+
 - Complete technical documentation
 - User manual and installation guides
 - Demo scenario preparation
 - Performance benchmarking and optimization
 
 **Week 12: Final Review & Deployment**
+
 - Final code review and quality assurance
 - Docker containerization and deployment scripts
 - System deployment on target hardware
 - Final presentation and project handover
 
 ### Team Responsibilities
+
 - **AI Specialist**: Model development, feature engineering, performance optimization
 - **Backend Developer**: API development, database design, socket implementation
 - **Frontend Developer**: UI/UX design, dashboard development, real-time integration
@@ -719,6 +795,7 @@ Periodic system health and statistics updates
 ## 12. Testing Plan
 
 ### Unit Testing Strategy
+
 - **Backend API Tests**: Pytest framework for all endpoint testing
 - **Frontend Component Tests**: Jest and React Testing Library
 - **AI Model Tests**: Validation of prediction accuracy and performance
@@ -726,30 +803,35 @@ Periodic system health and statistics updates
 - **Coverage Target**: Minimum 80% code coverage across all components
 
 ### Integration Testing
+
 - **API Integration**: End-to-end API workflow testing
 - **Socket Communication**: Real-time message flow validation
 - **Database Integration**: Data consistency and transaction testing
 - **AI Pipeline Integration**: Feature extraction to prediction workflow
 
 ### Performance Testing
+
 - **Load Testing**: Socket connection handling under high traffic
 - **Stress Testing**: System behavior under maximum capacity
 - **Latency Testing**: Real-time alert delivery performance
 - **Database Performance**: Query optimization and connection pooling
 
 ### Security Testing
+
 - **Authentication Testing**: JWT token validation and expiration
 - **Authorization Testing**: Role-based access control validation
 - **Input Validation**: SQL injection and XSS protection
 - **Network Security**: SSL/TLS configuration and data encryption
 
 ### AI Model Testing
+
 - **Accuracy Testing**: Precision, recall, and F1-score validation
 - **False Positive Analysis**: Minimizing incorrect attack classifications
 - **Real-time Performance**: Inference speed and throughput testing
 - **Model Drift Detection**: Monitoring for performance degradation
 
 ### User Acceptance Testing
+
 - **Role-based Testing**: Functionality validation for each user role
 - **Usability Testing**: Interface design and user experience validation
 - **Scenario Testing**: Complete attack detection and response workflows
@@ -758,6 +840,7 @@ Periodic system health and statistics updates
 ## 13. How to Run Locally
 
 ### Prerequisites
+
 - Docker and Docker Compose installed
 - Python 3.9+ for development
 - Node.js 16+ for frontend development
@@ -766,6 +849,7 @@ Periodic system health and statistics updates
 ### Quick Start with Docker Compose
 
 1. **Clone Repository and Setup Environment**
+
 ```bash
 git clone <repository-url>
 cd ids-ai-system
@@ -774,11 +858,13 @@ cp .env.example .env
 ```
 
 2. **Start All Services**
+
 ```bash
 docker-compose up -d
 ```
 
 This will start:
+
 - PostgreSQL database (port 5432)
 - Redis cache (port 6379)
 - Backend API (port 8000)
@@ -788,6 +874,7 @@ This will start:
 ### Manual Setup (Development Mode)
 
 #### 1. Database Setup
+
 ```bash
 # Start PostgreSQL container
 docker run -d --name ids-postgres \
@@ -802,6 +889,7 @@ alembic upgrade head
 ```
 
 #### 2. AI Model Server
+
 ```bash
 cd ai-pipeline
 python -m venv venv
@@ -817,6 +905,7 @@ python ai_server.py
 ```
 
 #### 3. Backend API
+
 ```bash
 cd backend
 python -m venv venv
@@ -835,6 +924,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 #### 4. Frontend Application
+
 ```bash
 cd frontend
 npm install
@@ -849,6 +939,7 @@ npm start
 ```
 
 #### 5. Socket Communication Test
+
 ```bash
 # Test AI to Backend socket connection
 cd tests
@@ -861,24 +952,28 @@ node test_frontend_socket.js
 ### Viewing the System in Action
 
 1. **Access Dashboard**: Navigate to http://localhost:3000
-2. **Default Login**: 
+2. **Default Login**:
    - Username: admin@ids.local
    - Password: admin123
 3. **Generate Test Traffic**: Use provided scripts to simulate network flows
+
 ```bash
 cd test-data
 python generate_test_flows.py --attack-rate 0.1 --duration 300
 ```
+
 4. **Monitor Alerts**: Watch real-time alerts appear in the dashboard
 5. **Test Actions**: Block IPs and observe network action execution
 
 ### Monitoring System Health
+
 - **Backend API Status**: http://localhost:8000/health
 - **AI Model Status**: http://localhost:8001/health
 - **Database Connection**: Check via backend health endpoint
 - **Socket Connections**: Monitor WebSocket connections in browser dev tools
 
 ### Troubleshooting Common Issues
+
 - **Port conflicts**: Modify docker-compose.yml port mappings
 - **Database connection errors**: Verify PostgreSQL container status
 - **AI model loading errors**: Check model file paths and permissions
@@ -887,48 +982,56 @@ python generate_test_flows.py --attack-rate 0.1 --duration 300
 ## 14. Future Enhancements
 
 ### Automated Intrusion Prevention (Full IPS)
+
 - **Automatic IP Blocking**: Real-time blocking without manual intervention
 - **Dynamic Firewall Rules**: Automated rule creation and management
 - **Threat Response Playbooks**: Predefined response actions for different attack types
 - **Integration with Network Hardware**: Direct communication with routers and switches
 
 ### Advanced AI Capabilities
+
 - **Online Learning**: Continuous model improvement from new attack patterns
 - **Ensemble Models**: Multiple specialized models for different attack types
 - **Anomaly Detection**: Unsupervised learning for zero-day attack detection
 - **Behavioral Analysis**: User and entity behavior analytics (UEBA)
 
 ### Enhanced Visualization and Analytics
+
 - **3D Network Topology**: Interactive network visualization
 - **Attack Path Analysis**: Visual representation of attack progression
 - **Predictive Analytics**: Forecasting potential security threats
 - **Custom Dashboard Builder**: User-configurable dashboard layouts
 
 ### Scalability Improvements
+
 - **Distributed Processing**: Multi-node deployment for large networks
 - **Cloud Integration**: Hybrid on-premises and cloud deployment options
 - **High Availability**: Redundant systems with automatic failover
 - **Performance Optimization**: Enhanced processing for high-volume networks
 
 ### Integration Capabilities
+
 - **SIEM Integration**: Export to popular SIEM platforms (Splunk, ELK Stack)
 - **Threat Intelligence Feeds**: Integration with external threat databases
 - **API Ecosystem**: Comprehensive REST and GraphQL APIs
 - **Mobile Applications**: iOS and Android apps for remote monitoring
 
 ### Advanced Security Features
+
 - **Multi-factor Authentication**: Enhanced user security
 - **Certificate Management**: Automated SSL/TLS certificate handling
 - **Encryption at Rest**: Database and file system encryption
 - **Compliance Reporting**: Automated compliance report generation
 
 ### Operational Enhancements
+
 - **Automated Backup and Recovery**: Comprehensive data protection
 - **Health Monitoring**: Advanced system health and performance monitoring
 - **Update Management**: Automated security updates and patch management
 - **Documentation Portal**: Integrated help system and knowledge base
 
 ### Research and Development Areas
+
 - **Quantum-Safe Cryptography**: Future-proof security implementations
 - **Edge Computing**: Processing at network edge devices
 - **5G Network Security**: Specialized detection for 5G infrastructure

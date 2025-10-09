@@ -1,6 +1,7 @@
 # Backend Track Documentation - IDS-AI System
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Architecture Design](#architecture-design)
 3. [Technology Stack](#technology-stack)
@@ -22,6 +23,7 @@
 The backend serves as the central orchestrator of the IDS-AI system, responsible for processing AI detection results, managing user authentication, providing REST APIs, handling real-time communications, and executing network security actions. Built with FastAPI for high performance and scalability.
 
 ### Core Responsibilities
+
 - **AI Integration**: Receive and process real-time attack detection results
 - **API Gateway**: Provide comprehensive REST API for frontend and external systems
 - **Authentication Service**: JWT-based user authentication and role management
@@ -65,6 +67,7 @@ The backend serves as the central orchestrator of the IDS-AI system, responsible
 ## Technology Stack
 
 ### Core Technologies
+
 ```python
 # requirements.txt
 fastapi==0.104.1
@@ -87,6 +90,7 @@ httpx==0.25.2
 ```
 
 ### Additional Dependencies
+
 ```python
 # Development & Production Tools
 gunicorn==21.2.0          # Production WSGI server
@@ -232,7 +236,7 @@ app.add_middleware(
 )
 
 app.add_middleware(
-    TrustedHostMiddleware, 
+    TrustedHostMiddleware,
     allowed_hosts=settings.ALLOWED_HOSTS
 )
 
@@ -272,43 +276,43 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
-    
+
     # Security
     SECRET_KEY: str = secrets.token_urlsafe(32)
     JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    
+
     # Database
     DATABASE_URL: str = "postgresql://user:pass@localhost:5432/ids_db"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 30
-    
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_CACHE_TTL: int = 3600
-    
+
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1"]
-    
+
     # AI Service
     AI_SERVICE_URL: str = "http://localhost:8001"
     AI_SERVICE_TIMEOUT: int = 30
-    
+
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
-    
+
     # Network Actions
     ENABLE_NETWORK_ACTIONS: bool = True
     IPTABLES_PATH: str = "/sbin/iptables"
-    
+
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -338,11 +342,11 @@ class AuthService:
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         return pwd_context.verify(plain_password, hashed_password)
-    
+
     @staticmethod
     def get_password_hash(password: str) -> str:
         return pwd_context.hash(password)
-    
+
     @staticmethod
     def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         to_encode = data.copy()
@@ -350,11 +354,11 @@ class AuthService:
             expire = datetime.utcnow() + expires_delta
         else:
             expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        
+
         to_encode.update({"exp": expire, "type": "access"})
         encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
         return encoded_jwt
-    
+
     @staticmethod
     def create_refresh_token(data: Dict[str, Any]) -> str:
         to_encode = data.copy()
@@ -362,7 +366,7 @@ class AuthService:
         to_encode.update({"exp": expire, "type": "refresh"})
         encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
         return encoded_jwt
-    
+
     @staticmethod
     def verify_token(token: str) -> Dict[str, Any]:
         try:
@@ -382,21 +386,21 @@ async def get_current_user(
 ) -> User:
     token = credentials.credentials
     payload = AuthService.verify_token(token)
-    
+
     user_id: int = payload.get("sub")
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
-    
+
     user = await user_service.get_user_by_id(user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-    
+
     return user
 
 # Role-based access control
@@ -418,7 +422,7 @@ def require_permission(permission: str):
             "security": ["view_alerts", "take_actions", "view_stats"],
             "viewer": ["view_alerts", "view_stats"],
         }
-        
+
         if permission not in user_permissions.get(current_user.role, []):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -456,13 +460,13 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
-    
+
     access_token = AuthService.create_access_token(data={"sub": str(user.id)})
     refresh_token = AuthService.create_refresh_token(data={"sub": str(user.id)})
-    
+
     # Update last login
     await user_service.update_last_login(user.id)
-    
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -477,24 +481,24 @@ async def refresh_token(
     user_service: UserService = Depends()
 ):
     payload = AuthService.verify_token(refresh_data.refresh_token)
-    
+
     if payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type"
         )
-    
+
     user_id = payload.get("sub")
     user = await user_service.get_user_by_id(int(user_id))
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-    
+
     new_access_token = AuthService.create_access_token(data={"sub": str(user.id)})
-    
+
     return {
         "access_token": new_access_token,
         "token_type": "bearer",
@@ -535,7 +539,7 @@ async def get_alerts(
         status=status,
         time_range=time_range
     )
-    
+
     alerts = await alert_service.get_alerts(skip=skip, limit=limit, filters=filters)
     return alerts
 
@@ -563,10 +567,10 @@ async def resolve_alert(
         resolution=resolution_data.get("resolution"),
         notes=resolution_data.get("notes")
     )
-    
+
     if not result:
         raise HTTPException(status_code=404, detail="Alert not found")
-    
+
     return {"message": "Alert resolved successfully"}
 
 # app/api/v1/network.py
@@ -652,7 +656,7 @@ class NotificationService:
     def __init__(self, sio: socketio.AsyncServer):
         self.sio = sio
         self.connected_users: Dict[str, Dict[str, Any]] = {}
-    
+
     async def user_connected(self, sid: str, user_id: int, user_role: str):
         """Register a user connection"""
         self.connected_users[sid] = {
@@ -661,39 +665,39 @@ class NotificationService:
             "connected_at": datetime.utcnow()
         }
         logger.info(f"User {user_id} connected with session {sid}")
-    
+
     async def user_disconnected(self, sid: str):
         """Handle user disconnection"""
         if sid in self.connected_users:
             user_data = self.connected_users.pop(sid)
             logger.info(f"User {user_data['user_id']} disconnected")
-    
+
     async def broadcast_attack_detected(self, alert_data: Dict[str, Any]):
         """Broadcast new attack detection to all connected users"""
         await self.sio.emit("attack_detected", alert_data)
         logger.info(f"Broadcasted attack detection: {alert_data['attack_type']}")
-    
+
     async def broadcast_alert_resolved(self, alert_data: Dict[str, Any]):
         """Broadcast alert resolution to all connected users"""
         await self.sio.emit("alert_resolved", alert_data)
         logger.info(f"Broadcasted alert resolution: {alert_data['alert_id']}")
-    
+
     async def broadcast_ip_blocked(self, action_data: Dict[str, Any]):
         """Broadcast IP blocking action to all connected users"""
         await self.sio.emit("ip_blocked", action_data)
         logger.info(f"Broadcasted IP block: {action_data['ip_address']}")
-    
+
     async def broadcast_system_status(self, status_data: Dict[str, Any]):
         """Broadcast system status updates"""
         await self.sio.emit("system_status", status_data)
-    
+
     async def send_to_user_role(self, role: str, event: str, data: Dict[str, Any]):
         """Send message to all users with specific role"""
         target_sessions = [
             sid for sid, user_data in self.connected_users.items()
             if user_data["user_role"] == role or user_data["user_role"] == "admin"
         ]
-        
+
         for sid in target_sessions:
             await self.sio.emit(event, data, room=sid)
 
@@ -707,26 +711,26 @@ async def connect(sid, environ, auth):
         if not token:
             await sio.disconnect(sid)
             return False
-        
+
         # Verify and decode token
         payload = AuthService.verify_token(token)
         user_id = payload.get("sub")
-        
+
         # Get user details
         user_service = UserService()
         user = await user_service.get_user_by_id(int(user_id))
-        
+
         if not user:
             await sio.disconnect(sid)
             return False
-        
+
         # Register connection
         notification_service = NotificationService(sio)
         await notification_service.user_connected(sid, user.id, user.role)
-        
+
         logger.info(f"User {user.email} connected via WebSocket")
         return True
-        
+
     except Exception as e:
         logger.error(f"Socket connection error: {e}")
         await sio.disconnect(sid)
@@ -758,17 +762,17 @@ class AIService:
         self.ai_service_url = settings.AI_SERVICE_URL
         self.timeout = settings.AI_SERVICE_TIMEOUT
         self.client = httpx.AsyncClient(timeout=self.timeout)
-    
+
     async def process_inference_result(self, inference_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Process AI inference result and create alert if attack detected"""
         try:
             prediction = inference_data.get("prediction")
-            
+
             if prediction == "attack":
                 # Create alert in database
                 alert_service = AlertService()
                 alert = await alert_service.create_alert_from_inference(inference_data)
-                
+
                 # Broadcast real-time notification
                 notification_service = NotificationService()
                 await notification_service.broadcast_attack_detected({
@@ -780,22 +784,22 @@ class AIService:
                     "confidence": alert.prediction_confidence,
                     "timestamp": alert.created_at.isoformat()
                 })
-                
+
                 return {"status": "alert_created", "alert_id": alert.id}
             else:
                 # Log normal traffic (optional, for statistics)
                 await self._log_normal_traffic(inference_data)
                 return {"status": "normal_traffic"}
-                
+
         except Exception as e:
             logger.error(f"Error processing inference result: {e}")
             return None
-    
+
     async def _log_normal_traffic(self, flow_data: Dict[str, Any]):
         """Log normal traffic for statistics (optional)"""
         # Implementation for logging normal traffic statistics
         pass
-    
+
     async def get_model_status(self) -> Dict[str, Any]:
         """Get AI model health status"""
         try:
@@ -804,7 +808,7 @@ class AIService:
         except Exception as e:
             logger.error(f"Failed to get AI model status: {e}")
             return {"status": "error", "message": str(e)}
-    
+
     async def retrain_model(self, training_data_path: str) -> Dict[str, Any]:
         """Trigger model retraining (future enhancement)"""
         try:
@@ -838,7 +842,7 @@ async def process_inference(
             ai_service.process_inference_result,
             inference_data.dict()
         )
-        
+
         return {"status": "received", "message": "Inference data received and processing"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -861,11 +865,11 @@ Base = declarative_base()
 
 class BaseModel(Base):
     __abstract__ = True
-    
+
     @declared_attr
     def __tablename__(cls):
         return cls.__name__.lower()
-    
+
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -884,14 +888,14 @@ class UserRole(str, enum.Enum):
 
 class User(BaseModel):
     __tablename__ = "users"
-    
+
     username = Column(String(100), unique=True, index=True, nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.VIEWER, nullable=False)
     active = Column(Boolean, default=True, nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Relationships
     alerts_resolved = relationship("Alert", back_populates="resolved_by_user")
     actions = relationship("Action", back_populates="user")
@@ -917,7 +921,7 @@ class AlertStatus(str, enum.Enum):
 
 class Alert(BaseModel):
     __tablename__ = "alerts"
-    
+
     flow_id = Column(String(100), ForeignKey("flows.flow_id"), nullable=False)
     attack_type_id = Column(Integer, ForeignKey("attack_types.id"), nullable=False)
     prediction_confidence = Column(Float, nullable=False)
@@ -932,7 +936,7 @@ class Alert(BaseModel):
     resolved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     resolution_notes = Column(String(1000), nullable=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Relationships
     flow = relationship("Flow", back_populates="alerts")
     attack_type = relationship("AttackType", back_populates="alerts")
@@ -947,7 +951,7 @@ from app.models.base import BaseModel
 
 class Flow(BaseModel):
     __tablename__ = "flows"
-    
+
     flow_id = Column(String(100), unique=True, nullable=False, index=True)
     src_ip = Column(String(45), nullable=False, index=True)
     dst_ip = Column(String(45), nullable=False, index=True)
@@ -960,10 +964,10 @@ class Flow(BaseModel):
     features = Column(JSON, nullable=False)  # Processed 60 features
     raw_features = Column(JSON, nullable=True)  # Original 80 features
     processed_at = Column(DateTime(timezone=True), nullable=False)
-    
+
     # Relationships
     alerts = relationship("Alert", back_populates="flow")
-    
+
     # Indexes for performance
     __table_args__ = (
         Index('idx_flows_timestamp', 'created_at'),
@@ -991,7 +995,7 @@ logger = get_logger(__name__)
 class AlertService:
     def __init__(self, db: Session = Depends(get_db)):
         self.db = db
-    
+
     async def create_alert_from_inference(self, inference_data: Dict[str, Any]) -> Alert:
         """Create alert from AI inference result"""
         try:
@@ -1009,55 +1013,55 @@ class AlertService:
                 "attack_details": inference_data.get("details", {}),
                 "status": AlertStatus.ACTIVE
             }
-            
+
             alert = Alert(**alert_data)
             self.db.add(alert)
             self.db.commit()
             self.db.refresh(alert)
-            
+
             logger.info(f"Created alert {alert.id} for {alert.attack_type} attack")
             return alert
-            
+
         except Exception as e:
             logger.error(f"Failed to create alert: {e}")
             self.db.rollback()
             raise
-    
+
     async def get_alerts(
-        self, 
-        skip: int = 0, 
-        limit: int = 100, 
+        self,
+        skip: int = 0,
+        limit: int = 100,
         filters: Optional[AlertFilters] = None
     ) -> List[Alert]:
         """Get alerts with optional filtering"""
         query = self.db.query(Alert)
-        
+
         if filters:
             if filters.severity and filters.severity != "all":
                 query = query.filter(Alert.risk_level == filters.severity)
-            
+
             if filters.attack_type and filters.attack_type != "all":
                 query = query.filter(Alert.attack_type == filters.attack_type)
-            
+
             if filters.status and filters.status != "all":
                 query = query.filter(Alert.status == filters.status)
-            
+
             if filters.time_range:
                 time_delta = self._parse_time_range(filters.time_range)
                 start_time = datetime.utcnow() - time_delta
                 query = query.filter(Alert.created_at >= start_time)
-        
+
         return query.order_by(Alert.created_at.desc()).offset(skip).limit(limit).all()
-    
+
     async def get_alert_by_id(self, alert_id: int) -> Optional[Alert]:
         """Get alert by ID"""
         return self.db.query(Alert).filter(Alert.id == alert_id).first()
-    
+
     async def resolve_alert(
-        self, 
-        alert_id: int, 
-        resolved_by: int, 
-        resolution: str, 
+        self,
+        alert_id: int,
+        resolved_by: int,
+        resolution: str,
         notes: Optional[str] = None
     ) -> bool:
         """Resolve an alert"""
@@ -1065,21 +1069,21 @@ class AlertService:
             alert = self.db.query(Alert).filter(Alert.id == alert_id).first()
             if not alert:
                 return False
-            
+
             alert.status = AlertStatus.RESOLVED
             alert.resolved_by = resolved_by
             alert.resolution_notes = notes
             alert.resolved_at = datetime.utcnow()
-            
+
             self.db.commit()
             logger.info(f"Alert {alert_id} resolved by user {resolved_by}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to resolve alert {alert_id}: {e}")
             self.db.rollback()
             return False
-    
+
     def _map_risk_level(self, confidence: float) -> RiskLevel:
         """Map confidence score to risk level"""
         if confidence >= 0.9:
@@ -1090,7 +1094,7 @@ class AlertService:
             return RiskLevel.MEDIUM
         else:
             return RiskLevel.LOW
-    
+
     def _parse_time_range(self, time_range: str) -> timedelta:
         """Parse time range string to timedelta"""
         time_mappings = {
@@ -1118,19 +1122,19 @@ class NetworkService:
     def __init__(self, db: Session = Depends(get_db)):
         self.db = db
         self.iptables_path = settings.IPTABLES_PATH
-    
+
     async def block_ip(
-        self, 
-        ip: str, 
-        duration: int, 
-        reason: str, 
+        self,
+        ip: str,
+        duration: int,
+        reason: str,
         user_id: int
     ) -> Dict[str, Any]:
         """Block IP address using iptables"""
         try:
             if not settings.ENABLE_NETWORK_ACTIONS:
                 raise Exception("Network actions are disabled")
-            
+
             # Execute iptables command
             command = [
                 self.iptables_path,
@@ -1138,15 +1142,15 @@ class NetworkService:
                 "-s", ip,
                 "-j", "DROP"
             ]
-            
+
             process = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-            
+
             stdout, stderr = await process.communicate()
-            
+
             if process.returncode == 0:
                 # Create action record
                 expires_at = datetime.utcnow() + timedelta(seconds=duration)
@@ -1160,13 +1164,13 @@ class NetworkService:
                     executed_at=datetime.utcnow(),
                     expires_at=expires_at
                 )
-                
+
                 self.db.add(action)
                 self.db.commit()
-                
+
                 # Schedule automatic unblock
                 asyncio.create_task(self._schedule_unblock(action.id, duration))
-                
+
                 logger.info(f"Successfully blocked IP {ip} for {duration} seconds")
                 return {
                     "success": True,
@@ -1178,11 +1182,11 @@ class NetworkService:
                 error_msg = stderr.decode() if stderr else "Unknown error"
                 logger.error(f"Failed to block IP {ip}: {error_msg}")
                 raise Exception(f"iptables command failed: {error_msg}")
-                
+
         except Exception as e:
             logger.error(f"Error blocking IP {ip}: {e}")
             raise
-    
+
     async def unblock_ip(self, ip: str, user_id: int) -> Dict[str, Any]:
         """Unblock IP address"""
         try:
@@ -1193,15 +1197,15 @@ class NetworkService:
                 "-s", ip,
                 "-j", "DROP"
             ]
-            
+
             process = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-            
+
             stdout, stderr = await process.communicate()
-            
+
             if process.returncode == 0:
                 # Update action record
                 action = self.db.query(Action).filter(
@@ -1211,25 +1215,25 @@ class NetworkService:
                         Action.status == ActionStatus.EXECUTED
                     )
                 ).first()
-                
+
                 if action:
                     action.status = ActionStatus.CANCELLED
                     self.db.commit()
-                
+
                 logger.info(f"Successfully unblocked IP {ip}")
                 return {"success": True, "message": f"IP {ip} unblocked successfully"}
             else:
                 error_msg = stderr.decode() if stderr else "Unknown error"
                 raise Exception(f"iptables command failed: {error_msg}")
-                
+
         except Exception as e:
             logger.error(f"Error unblocking IP {ip}: {e}")
             raise
-    
+
     async def _schedule_unblock(self, action_id: int, delay_seconds: int):
         """Schedule automatic unblock after specified delay"""
         await asyncio.sleep(delay_seconds)
-        
+
         try:
             action = self.db.query(Action).filter(Action.id == action_id).first()
             if action and action.status == ActionStatus.EXECUTED:
@@ -1262,7 +1266,7 @@ class CacheService:
             return None
         except Exception:
             return None
-    
+
     @staticmethod
     async def set(key: str, value: Any, expire: int = settings.REDIS_CACHE_TTL) -> bool:
         """Set value in cache with expiration"""
@@ -1271,7 +1275,7 @@ class CacheService:
             return redis_client.setex(key, expire, serialized_value)
         except Exception:
             return False
-    
+
     @staticmethod
     async def delete(key: str) -> bool:
         """Delete key from cache"""
@@ -1279,7 +1283,7 @@ class CacheService:
             return redis_client.delete(key) > 0
         except Exception:
             return False
-    
+
     @staticmethod
     async def get_json(key: str) -> Optional[dict]:
         """Get JSON value from cache"""
@@ -1290,7 +1294,7 @@ class CacheService:
             return None
         except Exception:
             return None
-    
+
     @staticmethod
     async def set_json(key: str, value: dict, expire: int = settings.REDIS_CACHE_TTL) -> bool:
         """Set JSON value in cache"""
@@ -1306,12 +1310,12 @@ def cache_result(expire: int = 300, key_prefix: str = ""):
         async def wrapper(*args, **kwargs):
             # Generate cache key
             cache_key = f"{key_prefix}:{func.__name__}:{hash(str(args) + str(kwargs))}"
-            
+
             # Try to get from cache
             cached_result = await CacheService.get(cache_key)
             if cached_result is not None:
                 return cached_result
-            
+
             # Execute function and cache result
             result = await func(*args, **kwargs)
             await CacheService.set(cache_key, result, expire)
@@ -1363,11 +1367,11 @@ def process_bulk_alerts(self, alert_data_list):
     try:
         alert_service = AlertService()
         results = []
-        
+
         for alert_data in alert_data_list:
             result = alert_service.create_alert_from_inference(alert_data)
             results.append(result.id)
-        
+
         return {"processed": len(results), "alert_ids": results}
     except Exception as e:
         logger.error(f"Failed to process bulk alerts: {e}")
@@ -1379,11 +1383,11 @@ def cleanup_expired_actions():
     try:
         network_service = NetworkService()
         expired_actions = network_service.get_expired_actions()
-        
+
         for action in expired_actions:
             if action.action_type == "block_ip":
                 network_service.unblock_ip(action.target_value, action.user_id)
-        
+
         return {"cleaned_up": len(expired_actions)}
     except Exception as e:
         logger.error(f"Failed to cleanup expired actions: {e}")

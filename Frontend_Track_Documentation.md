@@ -1,6 +1,7 @@
 # Frontend Track Documentation - IDS-AI System
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Technology Stack](#technology-stack)
 3. [Project Structure](#project-structure)
@@ -21,6 +22,7 @@
 The frontend application serves as the primary interface for the IDS-AI system, providing real-time monitoring, attack visualization, and network management capabilities. Built with React 18 and TypeScript, it offers a responsive, secure, and intuitive dashboard for security professionals.
 
 ### Key Features
+
 - **Real-time Attack Monitoring**: Live attack detection with instant notifications
 - **Interactive Dashboards**: Comprehensive security analytics and visualizations
 - **Role-based Access Control**: Different interfaces for Admin, Security, and Viewer roles
@@ -30,6 +32,7 @@ The frontend application serves as the primary interface for the IDS-AI system, 
 ## Technology Stack
 
 ### Core Technologies
+
 ```json
 {
   "framework": "React 18.2.0",
@@ -50,6 +53,7 @@ The frontend application serves as the primary interface for the IDS-AI system, 
 ```
 
 ### Development Tools
+
 ```json
 {
   "linting": "ESLint 8.45+",
@@ -151,6 +155,7 @@ interface ChartProps {
 ### Component Design Patterns
 
 #### 1. Container/Presentational Pattern
+
 ```typescript
 // Container Component
 const AlertsContainer: React.FC = () => {
@@ -159,10 +164,10 @@ const AlertsContainer: React.FC = () => {
 
   const handleAlertAction = (alertId: string, action: AlertAction) => {
     switch (action.type) {
-      case 'BLOCK_IP':
+      case "BLOCK_IP":
         blockIP(action.payload.ip);
         break;
-      case 'RESOLVE':
+      case "RESOLVE":
         resolveAlert(alertId, action.payload.resolution);
         break;
     }
@@ -172,10 +177,7 @@ const AlertsContainer: React.FC = () => {
   if (error) return <ErrorMessage error={error} />;
 
   return (
-    <AlertsPresentation
-      alerts={alerts}
-      onAlertAction={handleAlertAction}
-    />
+    <AlertsPresentation alerts={alerts} onAlertAction={handleAlertAction} />
   );
 };
 
@@ -186,7 +188,7 @@ const AlertsPresentation: React.FC<AlertsPresentationProps> = ({
 }) => {
   return (
     <div className="space-y-4">
-      {alerts.map(alert => (
+      {alerts.map((alert) => (
         <AlertCard
           key={alert.id}
           alert={alert}
@@ -200,6 +202,7 @@ const AlertsPresentation: React.FC<AlertsPresentationProps> = ({
 ```
 
 #### 2. Custom Hooks Pattern
+
 ```typescript
 // useAlerts hook
 export const useAlerts = () => {
@@ -224,8 +227,8 @@ export const useAlerts = () => {
   }, []);
 
   // Real-time updates via socket
-  useSocket('attack_detected', (newAlert: Alert) => {
-    setAlerts(prev => [newAlert, ...prev]);
+  useSocket("attack_detected", (newAlert: Alert) => {
+    setAlerts((prev) => [newAlert, ...prev]);
   });
 
   return { alerts, loading, error, setAlerts };
@@ -249,19 +252,19 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  token: localStorage.getItem('auth_token'),
+  token: localStorage.getItem("auth_token"),
   isAuthenticated: false,
 
   login: async (credentials) => {
     const response = await authService.login(credentials);
     const { user, token } = response.data;
-    
-    localStorage.setItem('auth_token', token);
+
+    localStorage.setItem("auth_token", token);
     set({ user, token, isAuthenticated: true });
   },
 
   logout: () => {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem("auth_token");
     set({ user: null, token: null, isAuthenticated: false });
   },
 
@@ -272,8 +275,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await authService.refreshToken(token);
       const newToken = response.data.token;
-      
-      localStorage.setItem('auth_token', newToken);
+
+      localStorage.setItem("auth_token", newToken);
       set({ token: newToken });
     } catch (error) {
       get().logout();
@@ -296,31 +299,32 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
   alerts: [],
   activeAlerts: [],
   filters: {
-    severity: 'all',
-    type: 'all',
-    timeRange: '24h',
+    severity: "all",
+    type: "all",
+    timeRange: "24h",
   },
 
   setAlerts: (alerts) => {
-    const activeAlerts = alerts.filter(alert => alert.status === 'active');
+    const activeAlerts = alerts.filter((alert) => alert.status === "active");
     set({ alerts, activeAlerts });
   },
 
   addAlert: (alert) => {
-    set(state => ({
+    set((state) => ({
       alerts: [alert, ...state.alerts],
-      activeAlerts: alert.status === 'active' 
-        ? [alert, ...state.activeAlerts] 
-        : state.activeAlerts,
+      activeAlerts:
+        alert.status === "active"
+          ? [alert, ...state.activeAlerts]
+          : state.activeAlerts,
     }));
   },
 
   updateAlert: (id, updates) => {
-    set(state => ({
-      alerts: state.alerts.map(alert =>
+    set((state) => ({
+      alerts: state.alerts.map((alert) =>
         alert.id === id ? { ...alert, ...updates } : alert
       ),
-      activeAlerts: state.activeAlerts.map(alert =>
+      activeAlerts: state.activeAlerts.map((alert) =>
         alert.id === id ? { ...alert, ...updates } : alert
       ),
     }));
@@ -343,15 +347,15 @@ class SocketService {
   connect(token: string) {
     this.socket = io(process.env.REACT_APP_SOCKET_URL!, {
       auth: { token },
-      transports: ['websocket'],
+      transports: ["websocket"],
     });
 
-    this.socket.on('connect', () => {
-      console.log('Socket connected:', this.socket?.id);
+    this.socket.on("connect", () => {
+      console.log("Socket connected:", this.socket?.id);
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+    this.socket.on("disconnect", () => {
+      console.log("Socket disconnected");
     });
 
     // Set up event listeners
@@ -361,20 +365,20 @@ class SocketService {
   private setupEventHandlers() {
     if (!this.socket) return;
 
-    this.socket.on('attack_detected', (data: Alert) => {
-      this.emit('attack_detected', data);
+    this.socket.on("attack_detected", (data: Alert) => {
+      this.emit("attack_detected", data);
     });
 
-    this.socket.on('alert_resolved', (data: AlertResolution) => {
-      this.emit('alert_resolved', data);
+    this.socket.on("alert_resolved", (data: AlertResolution) => {
+      this.emit("alert_resolved", data);
     });
 
-    this.socket.on('ip_blocked', (data: IPBlockEvent) => {
-      this.emit('ip_blocked', data);
+    this.socket.on("ip_blocked", (data: IPBlockEvent) => {
+      this.emit("ip_blocked", data);
     });
 
-    this.socket.on('system_status', (data: SystemStatus) => {
-      this.emit('system_status', data);
+    this.socket.on("system_status", (data: SystemStatus) => {
+      this.emit("system_status", data);
     });
   }
 
@@ -397,7 +401,7 @@ class SocketService {
 
   private emit(event: string, data: any) {
     const handlers = this.eventHandlers.get(event) || [];
-    handlers.forEach(handler => handler(data));
+    handlers.forEach((handler) => handler(data));
   }
 
   disconnect() {
@@ -428,10 +432,10 @@ export const useSocket = (event: string, handler: Function) => {
 ```typescript
 // components/alerts/AlertNotificationSystem.tsx
 export const AlertNotificationSystem: React.FC = () => {
-  const addAlert = useAlertsStore(state => state.addAlert);
+  const addAlert = useAlertsStore((state) => state.addAlert);
   const [notifications, setNotifications] = useState<AlertNotification[]>([]);
 
-  useSocket('attack_detected', (alert: Alert) => {
+  useSocket("attack_detected", (alert: Alert) => {
     // Add to store
     addAlert(alert);
 
@@ -443,37 +447,40 @@ export const AlertNotificationSystem: React.FC = () => {
       severity: alert.risk_level,
       timestamp: new Date(),
       actions: [
-        { label: 'Block IP', action: () => blockIP(alert.src_ip) },
-        { label: 'Investigate', action: () => navigateToAlert(alert.id) },
-        { label: 'Dismiss', action: () => dismissNotification(alert.id) },
+        { label: "Block IP", action: () => blockIP(alert.src_ip) },
+        { label: "Investigate", action: () => navigateToAlert(alert.id) },
+        { label: "Dismiss", action: () => dismissNotification(alert.id) },
       ],
     };
 
-    setNotifications(prev => [notification, ...prev.slice(0, 4)]);
-    
+    setNotifications((prev) => [notification, ...prev.slice(0, 4)]);
+
     // Play alert sound
     playAlertSound(alert.risk_level);
-    
+
     // Show toast notification
-    toast.custom((t) => (
-      <AlertToast
-        notification={notification}
-        onClose={() => toast.dismiss(t.id)}
-      />
-    ), {
-      duration: alert.risk_level === 'critical' ? Infinity : 10000,
-    });
+    toast.custom(
+      (t) => (
+        <AlertToast
+          notification={notification}
+          onClose={() => toast.dismiss(t.id)}
+        />
+      ),
+      {
+        duration: alert.risk_level === "critical" ? Infinity : 10000,
+      }
+    );
   });
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2">
-      {notifications.map(notification => (
+      {notifications.map((notification) => (
         <AlertNotificationCard
           key={notification.id}
           notification={notification}
-          onDismiss={(id) => setNotifications(prev => 
-            prev.filter(n => n.id !== id)
-          )}
+          onDismiss={(id) =>
+            setNotifications((prev) => prev.filter((n) => n.id !== id))
+          }
         />
       ))}
     </div>
@@ -490,59 +497,59 @@ export const AlertNotificationSystem: React.FC = () => {
 export const colors = {
   // Brand Colors
   primary: {
-    50: '#eff6ff',
-    100: '#dbeafe',
-    500: '#3b82f6',
-    600: '#2563eb',
-    700: '#1d4ed8',
-    900: '#1e3a8a',
+    50: "#eff6ff",
+    100: "#dbeafe",
+    500: "#3b82f6",
+    600: "#2563eb",
+    700: "#1d4ed8",
+    900: "#1e3a8a",
   },
-  
+
   // Semantic Colors
   success: {
-    50: '#f0fdf4',
-    100: '#dcfce7',
-    500: '#22c55e',
-    600: '#16a34a',
-    700: '#15803d',
+    50: "#f0fdf4",
+    100: "#dcfce7",
+    500: "#22c55e",
+    600: "#16a34a",
+    700: "#15803d",
   },
-  
+
   warning: {
-    50: '#fffbeb',
-    100: '#fef3c7',
-    500: '#f59e0b',
-    600: '#d97706',
-    700: '#b45309',
+    50: "#fffbeb",
+    100: "#fef3c7",
+    500: "#f59e0b",
+    600: "#d97706",
+    700: "#b45309",
   },
-  
+
   danger: {
-    50: '#fef2f2',
-    100: '#fee2e2',
-    500: '#ef4444',
-    600: '#dc2626',
-    700: '#b91c1c',
+    50: "#fef2f2",
+    100: "#fee2e2",
+    500: "#ef4444",
+    600: "#dc2626",
+    700: "#b91c1c",
   },
-  
+
   // Risk Level Colors
   risk: {
-    low: '#22c55e',      // Green
-    medium: '#f59e0b',   // Yellow
-    high: '#f97316',     // Orange
-    critical: '#dc2626', // Red
+    low: "#22c55e", // Green
+    medium: "#f59e0b", // Yellow
+    high: "#f97316", // Orange
+    critical: "#dc2626", // Red
   },
-  
+
   // Neutral Colors
   gray: {
-    50: '#f9fafb',
-    100: '#f3f4f6',
-    200: '#e5e7eb',
-    300: '#d1d5db',
-    400: '#9ca3af',
-    500: '#6b7280',
-    600: '#4b5563',
-    700: '#374151',
-    800: '#1f2937',
-    900: '#111827',
+    50: "#f9fafb",
+    100: "#f3f4f6",
+    200: "#e5e7eb",
+    300: "#d1d5db",
+    400: "#9ca3af",
+    500: "#6b7280",
+    600: "#4b5563",
+    700: "#374151",
+    800: "#1f2937",
+    900: "#111827",
   },
 };
 ```
@@ -552,37 +559,41 @@ export const colors = {
 ```typescript
 // components/ui/Button.tsx
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "danger" | "ghost";
+  size?: "sm" | "md" | "lg";
   loading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
 
 export const Button: React.FC<ButtonProps> = ({
-  variant = 'primary',
-  size = 'md',
+  variant = "primary",
+  size = "md",
   loading = false,
   leftIcon,
   rightIcon,
   children,
-  className = '',
+  className = "",
   disabled,
   ...props
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200';
-  
+  const baseClasses =
+    "inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+
   const variantClasses = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500',
-    danger: 'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500',
-    ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
+    primary:
+      "bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500",
+    secondary:
+      "bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500",
+    danger:
+      "bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500",
+    ghost: "text-gray-700 hover:bg-gray-100 focus:ring-gray-500",
   };
-  
+
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
+    sm: "px-3 py-1.5 text-sm",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base",
   };
 
   return (
@@ -603,32 +614,34 @@ export const Button: React.FC<ButtonProps> = ({
 interface CardProps {
   children: React.ReactNode;
   className?: string;
-  padding?: 'none' | 'sm' | 'md' | 'lg';
-  shadow?: 'none' | 'sm' | 'md' | 'lg';
+  padding?: "none" | "sm" | "md" | "lg";
+  shadow?: "none" | "sm" | "md" | "lg";
 }
 
 export const Card: React.FC<CardProps> = ({
   children,
-  className = '',
-  padding = 'md',
-  shadow = 'md',
+  className = "",
+  padding = "md",
+  shadow = "md",
 }) => {
   const paddingClasses = {
-    none: '',
-    sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6',
+    none: "",
+    sm: "p-3",
+    md: "p-4",
+    lg: "p-6",
   };
-  
+
   const shadowClasses = {
-    none: '',
-    sm: 'shadow-sm',
-    md: 'shadow-md',
-    lg: 'shadow-lg',
+    none: "",
+    sm: "shadow-sm",
+    md: "shadow-md",
+    lg: "shadow-lg",
   };
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${paddingClasses[padding]} ${shadowClasses[shadow]} ${className}`}>
+    <div
+      className={`bg-white rounded-lg border border-gray-200 ${paddingClasses[padding]} ${shadowClasses[shadow]} ${className}`}
+    >
       {children}
     </div>
   );
@@ -642,7 +655,7 @@ export const Card: React.FC<CardProps> = ({
 ```typescript
 // pages/dashboard/DashboardPage.tsx
 export const DashboardPage: React.FC = () => {
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -653,7 +666,7 @@ export const DashboardPage: React.FC = () => {
         const response = await dashboardService.getStats(timeRange);
         setStats(response.data);
       } catch (error) {
-        console.error('Failed to fetch dashboard stats:', error);
+        console.error("Failed to fetch dashboard stats:", error);
       } finally {
         setLoading(false);
       }
@@ -663,8 +676,8 @@ export const DashboardPage: React.FC = () => {
   }, [timeRange]);
 
   // Real-time updates
-  useSocket('system_status', (status: SystemStatus) => {
-    setStats(prev => prev ? { ...prev, systemStatus: status } : null);
+  useSocket("system_status", (status: SystemStatus) => {
+    setStats((prev) => (prev ? { ...prev, systemStatus: status } : null));
   });
 
   if (loading) return <DashboardSkeleton />;
@@ -717,7 +730,9 @@ export const DashboardPage: React.FC = () => {
           <AttackTrendsChart data={stats.attackTrends} />
         </Card>
         <Card>
-          <h3 className="text-lg font-semibold mb-4">Attack Types Distribution</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            Attack Types Distribution
+          </h3>
           <AttackTypesChart data={stats.attackTypes} />
         </Card>
       </div>
@@ -744,36 +759,41 @@ export const DashboardPage: React.FC = () => {
 export const AlertsPage: React.FC = () => {
   const { alerts, loading, error } = useAlerts();
   const [filters, setFilters] = useState<AlertFilters>({
-    severity: 'all',
-    type: 'all',
-    status: 'active',
-    timeRange: '24h',
+    severity: "all",
+    type: "all",
+    status: "active",
+    timeRange: "24h",
   });
   const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
   const { blockIP, resolveAlert } = useNetworkActions();
 
   const filteredAlerts = useMemo(() => {
-    return alerts.filter(alert => {
-      if (filters.severity !== 'all' && alert.risk_level !== filters.severity) return false;
-      if (filters.type !== 'all' && alert.attack_type !== filters.type) return false;
-      if (filters.status !== 'all' && alert.status !== filters.status) return false;
+    return alerts.filter((alert) => {
+      if (filters.severity !== "all" && alert.risk_level !== filters.severity)
+        return false;
+      if (filters.type !== "all" && alert.attack_type !== filters.type)
+        return false;
+      if (filters.status !== "all" && alert.status !== filters.status)
+        return false;
       return true;
     });
   }, [alerts, filters]);
 
   const handleBulkAction = async (action: BulkAction) => {
     switch (action.type) {
-      case 'BLOCK_IPS':
+      case "BLOCK_IPS":
         await Promise.all(
-          selectedAlerts.map(alertId => {
-            const alert = alerts.find(a => a.id === alertId);
+          selectedAlerts.map((alertId) => {
+            const alert = alerts.find((a) => a.id === alertId);
             return alert ? blockIP(alert.src_ip) : Promise.resolve();
           })
         );
         break;
-      case 'RESOLVE_ALL':
+      case "RESOLVE_ALL":
         await Promise.all(
-          selectedAlerts.map(alertId => resolveAlert(alertId, action.resolution))
+          selectedAlerts.map((alertId) =>
+            resolveAlert(alertId, action.resolution)
+          )
         );
         break;
     }
@@ -820,14 +840,14 @@ export const AlertsPage: React.FC = () => {
           selectedAlerts={selectedAlerts}
           onSelectionChange={setSelectedAlerts}
           onAlertAction={async (alertId, action) => {
-            const alert = alerts.find(a => a.id === alertId);
+            const alert = alerts.find((a) => a.id === alertId);
             if (!alert) return;
 
             switch (action.type) {
-              case 'BLOCK_IP':
+              case "BLOCK_IP":
                 await blockIP(alert.src_ip);
                 break;
-              case 'RESOLVE':
+              case "RESOLVE":
                 await resolveAlert(alertId, action.resolution);
                 break;
             }
@@ -846,11 +866,11 @@ export const AlertsPage: React.FC = () => {
 ```typescript
 // utils/auth.ts
 export const setAuthHeader = (token: string) => {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 };
 
 export const removeAuthHeader = () => {
-  delete axios.defaults.headers.common['Authorization'];
+  delete axios.defaults.headers.common["Authorization"];
 };
 
 // components/auth/ProtectedRoute.tsx
@@ -870,7 +890,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiredRole && user?.role !== requiredRole && user?.role !== 'admin') {
+  if (requiredRole && user?.role !== requiredRole && user?.role !== "admin") {
     return <Navigate to="/unauthorized" replace />;
   }
 
@@ -879,15 +899,21 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
 // hooks/usePermissions.ts
 export const usePermissions = () => {
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
 
   const can = (permission: Permission): boolean => {
     if (!user) return false;
 
     const rolePermissions: Record<UserRole, Permission[]> = {
-      admin: ['view_alerts', 'take_actions', 'manage_users', 'view_stats', 'system_config'],
-      security: ['view_alerts', 'take_actions', 'view_stats'],
-      viewer: ['view_alerts', 'view_stats'],
+      admin: [
+        "view_alerts",
+        "take_actions",
+        "manage_users",
+        "view_stats",
+        "system_config",
+      ],
+      security: ["view_alerts", "take_actions", "view_stats"],
+      viewer: ["view_alerts", "view_stats"],
     };
 
     return rolePermissions[user.role]?.includes(permission) || false;
@@ -901,22 +927,30 @@ export const usePermissions = () => {
 
 ```typescript
 // utils/validation.ts
-import { z } from 'zod';
+import { z } from "zod";
 
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-export const ipAddressSchema = z.string().regex(
-  /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
-  'Invalid IP address format'
-);
+export const ipAddressSchema = z
+  .string()
+  .regex(
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
+    "Invalid IP address format"
+  );
 
 export const blockIPSchema = z.object({
   ip: ipAddressSchema,
-  duration: z.number().min(60, 'Duration must be at least 1 minute').max(86400, 'Duration cannot exceed 24 hours'),
-  reason: z.string().min(1, 'Reason is required').max(500, 'Reason cannot exceed 500 characters'),
+  duration: z
+    .number()
+    .min(60, "Duration must be at least 1 minute")
+    .max(86400, "Duration cannot exceed 24 hours"),
+  reason: z
+    .string()
+    .min(1, "Reason is required")
+    .max(500, "Reason cannot exceed 500 characters"),
 });
 
 // hooks/useValidatedForm.ts
@@ -932,7 +966,7 @@ export const useValidatedForm = <T extends z.ZodRawShape>(
     try {
       await onSubmit(data);
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error("Form submission error:", error);
     }
   });
 
@@ -946,41 +980,60 @@ export const useValidatedForm = <T extends z.ZodRawShape>(
 
 ```typescript
 // App.tsx
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense } from "react";
 
-const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
-const AlertsPage = lazy(() => import('./pages/alerts/AlertsPage'));
-const NetworkPage = lazy(() => import('./pages/network/NetworkPage'));
-const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
+const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage"));
+const AlertsPage = lazy(() => import("./pages/alerts/AlertsPage"));
+const NetworkPage = lazy(() => import("./pages/network/NetworkPage"));
+const AdminPage = lazy(() => import("./pages/admin/AdminPage"));
 
 export const App: React.FC = () => {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={
-            <Suspense fallback={<PageSkeleton />}>
-              <DashboardPage />
-            </Suspense>
-          } />
-          <Route path="alerts" element={
-            <Suspense fallback={<PageSkeleton />}>
-              <AlertsPage />
-            </Suspense>
-          } />
-          <Route path="network" element={
-            <Suspense fallback={<PageSkeleton />}>
-              <NetworkPage />
-            </Suspense>
-          } />
-          <Route path="admin" element={
-            <ProtectedRoute requiredRole="admin">
-              <Suspense fallback={<PageSkeleton />}>
-                <AdminPage />
-              </Suspense>
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
             </ProtectedRoute>
-          } />
+          }
+        >
+          <Route
+            index
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <DashboardPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="alerts"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <AlertsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="network"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <NetworkPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="admin"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <Suspense fallback={<PageSkeleton />}>
+                  <AdminPage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
     </Router>
@@ -996,10 +1049,13 @@ export const useOptimizedAlerts = (filters: AlertFilters) => {
   const { alerts } = useAlertsStore();
 
   const filteredAlerts = useMemo(() => {
-    return alerts.filter(alert => {
-      if (filters.severity !== 'all' && alert.risk_level !== filters.severity) return false;
-      if (filters.type !== 'all' && alert.attack_type !== filters.type) return false;
-      if (filters.status !== 'all' && alert.status !== filters.status) return false;
+    return alerts.filter((alert) => {
+      if (filters.severity !== "all" && alert.risk_level !== filters.severity)
+        return false;
+      if (filters.type !== "all" && alert.attack_type !== filters.type)
+        return false;
+      if (filters.status !== "all" && alert.status !== filters.status)
+        return false;
       return true;
     });
   }, [alerts, filters]);
@@ -1017,31 +1073,33 @@ export const useOptimizedAlerts = (filters: AlertFilters) => {
 };
 
 // components/charts/OptimizedChart.tsx
-export const OptimizedChart: React.FC<ChartProps> = memo(({ data, options, type }) => {
-  const chartRef = useRef<Chart>(null);
-  
-  useEffect(() => {
-    if (chartRef.current) {
-      chartRef.current.update('none'); // Update without animation for performance
-    }
-  }, [data]);
+export const OptimizedChart: React.FC<ChartProps> = memo(
+  ({ data, options, type }) => {
+    const chartRef = useRef<Chart>(null);
 
-  return (
-    <Chart
-      ref={chartRef}
-      type={type}
-      data={data}
-      options={{
-        ...options,
-        animation: {
-          duration: 0, // Disable animations for better performance
-        },
-        responsive: true,
-        maintainAspectRatio: false,
-      }}
-    />
-  );
-});
+    useEffect(() => {
+      if (chartRef.current) {
+        chartRef.current.update("none"); // Update without animation for performance
+      }
+    }, [data]);
+
+    return (
+      <Chart
+        ref={chartRef}
+        type={type}
+        data={data}
+        options={{
+          ...options,
+          animation: {
+            duration: 0, // Disable animations for better performance
+          },
+          responsive: true,
+          maintainAspectRatio: false,
+        }}
+      />
+    );
+  }
+);
 ```
 
 ## Testing Strategy
@@ -1050,24 +1108,20 @@ export const OptimizedChart: React.FC<ChartProps> = memo(({ data, options, type 
 
 ```typescript
 // tests/components/AlertCard.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { AlertCard } from '../components/alerts/AlertCard';
-import { mockAlert } from '../__mocks__/alerts';
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { AlertCard } from "../components/alerts/AlertCard";
+import { mockAlert } from "../__mocks__/alerts";
 
-describe('AlertCard', () => {
+describe("AlertCard", () => {
   const mockOnAction = jest.fn();
 
   beforeEach(() => {
     mockOnAction.mockClear();
   });
 
-  it('renders alert information correctly', () => {
+  it("renders alert information correctly", () => {
     render(
-      <AlertCard
-        alert={mockAlert}
-        onAction={mockOnAction}
-        showActions={true}
-      />
+      <AlertCard alert={mockAlert} onAction={mockOnAction} showActions={true} />
     );
 
     expect(screen.getByText(mockAlert.attack_type)).toBeInTheDocument();
@@ -1075,27 +1129,23 @@ describe('AlertCard', () => {
     expect(screen.getByText(mockAlert.risk_level)).toBeInTheDocument();
   });
 
-  it('calls onAction when block IP button is clicked', async () => {
+  it("calls onAction when block IP button is clicked", async () => {
     render(
-      <AlertCard
-        alert={mockAlert}
-        onAction={mockOnAction}
-        showActions={true}
-      />
+      <AlertCard alert={mockAlert} onAction={mockOnAction} showActions={true} />
     );
 
-    const blockButton = screen.getByText('Block IP');
+    const blockButton = screen.getByText("Block IP");
     fireEvent.click(blockButton);
 
     await waitFor(() => {
       expect(mockOnAction).toHaveBeenCalledWith({
-        type: 'BLOCK_IP',
+        type: "BLOCK_IP",
         payload: { ip: mockAlert.src_ip },
       });
     });
   });
 
-  it('does not show action buttons when showActions is false', () => {
+  it("does not show action buttons when showActions is false", () => {
     render(
       <AlertCard
         alert={mockAlert}
@@ -1104,20 +1154,20 @@ describe('AlertCard', () => {
       />
     );
 
-    expect(screen.queryByText('Block IP')).not.toBeInTheDocument();
-    expect(screen.queryByText('Resolve')).not.toBeInTheDocument();
+    expect(screen.queryByText("Block IP")).not.toBeInTheDocument();
+    expect(screen.queryByText("Resolve")).not.toBeInTheDocument();
   });
 });
 
 // tests/hooks/useAlerts.test.ts
-import { renderHook, waitFor } from '@testing-library/react';
-import { useAlerts } from '../hooks/useAlerts';
-import { alertsService } from '../services/alertsService';
+import { renderHook, waitFor } from "@testing-library/react";
+import { useAlerts } from "../hooks/useAlerts";
+import { alertsService } from "../services/alertsService";
 
-jest.mock('../services/alertsService');
+jest.mock("../services/alertsService");
 
-describe('useAlerts', () => {
-  it('fetches alerts on mount', async () => {
+describe("useAlerts", () => {
+  it("fetches alerts on mount", async () => {
     const mockAlerts = [mockAlert];
     (alertsService.getAlerts as jest.Mock).mockResolvedValue({
       data: mockAlerts,
@@ -1133,8 +1183,8 @@ describe('useAlerts', () => {
     });
   });
 
-  it('handles fetch errors gracefully', async () => {
-    const mockError = new Error('Failed to fetch');
+  it("handles fetch errors gracefully", async () => {
+    const mockError = new Error("Failed to fetch");
     (alertsService.getAlerts as jest.Mock).mockRejectedValue(mockError);
 
     const { result } = renderHook(() => useAlerts());
@@ -1151,22 +1201,22 @@ describe('useAlerts', () => {
 
 ```typescript
 // tests/integration/AlertsPage.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { AlertsPage } from '../pages/alerts/AlertsPage';
-import { TestWrapper } from '../__mocks__/TestWrapper';
-import * as alertsService from '../services/alertsService';
-import * as networkService from '../services/networkService';
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { AlertsPage } from "../pages/alerts/AlertsPage";
+import { TestWrapper } from "../__mocks__/TestWrapper";
+import * as alertsService from "../services/alertsService";
+import * as networkService from "../services/networkService";
 
-jest.mock('../services/alertsService');
-jest.mock('../services/networkService');
+jest.mock("../services/alertsService");
+jest.mock("../services/networkService");
 
-describe('AlertsPage Integration', () => {
-  it('displays alerts and allows blocking IPs', async () => {
+describe("AlertsPage Integration", () => {
+  it("displays alerts and allows blocking IPs", async () => {
     const mockAlerts = [mockAlert];
-    jest.spyOn(alertsService, 'getAlerts').mockResolvedValue({
+    jest.spyOn(alertsService, "getAlerts").mockResolvedValue({
       data: mockAlerts,
     });
-    jest.spyOn(networkService, 'blockIP').mockResolvedValue({
+    jest.spyOn(networkService, "blockIP").mockResolvedValue({
       success: true,
     });
 
@@ -1182,7 +1232,7 @@ describe('AlertsPage Integration', () => {
     });
 
     // Click block IP button
-    const blockButton = screen.getByText('Block IP');
+    const blockButton = screen.getByText("Block IP");
     fireEvent.click(blockButton);
 
     // Verify network service was called
@@ -1228,12 +1278,14 @@ REACT_APP_VERSION=1.0.0
 ### Development Workflow
 
 1. **Setup Development Environment**
+
 ```bash
 npm install
 npm run dev
 ```
 
 2. **Code Quality Checks**
+
 ```bash
 npm run lint
 npm run type-check
@@ -1241,6 +1293,7 @@ npm run test
 ```
 
 3. **Pre-commit Hooks** (using Husky)
+
 ```bash
 # .husky/pre-commit
 #!/bin/sh
@@ -1255,27 +1308,27 @@ npm run test --run
 
 ```typescript
 // vite.config.ts
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { resolve } from "path";
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      "@": resolve(__dirname, "src"),
     },
   },
   build: {
-    target: 'es2020',
-    outDir: 'dist',
+    target: "es2020",
+    outDir: "dist",
     sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          charts: ['chart.js', 'react-chartjs-2'],
-          socket: ['socket.io-client'],
+          vendor: ["react", "react-dom"],
+          charts: ["chart.js", "react-chartjs-2"],
+          socket: ["socket.io-client"],
         },
       },
     },
@@ -1283,8 +1336,8 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
+      "/api": {
+        target: "http://localhost:8000",
         changeOrigin: true,
       },
     },
@@ -1350,42 +1403,47 @@ server {
 ### Common Issues & Solutions
 
 #### 1. Socket Connection Issues
+
 ```typescript
 // Check connection status
 const [connected, setConnected] = useState(false);
 
 useEffect(() => {
-  socketService.socket?.on('connect', () => setConnected(true));
-  socketService.socket?.on('disconnect', () => setConnected(false));
+  socketService.socket?.on("connect", () => setConnected(true));
+  socketService.socket?.on("disconnect", () => setConnected(false));
 }, []);
 
 // Display connection status
-{!connected && (
-  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-    Connection lost. Attempting to reconnect...
-  </div>
-)}
+{
+  !connected && (
+    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      Connection lost. Attempting to reconnect...
+    </div>
+  );
+}
 ```
 
 #### 2. Performance Issues with Large Alert Lists
+
 ```typescript
 // Implement virtualization for large lists
-import { FixedSizeList as List } from 'react-window';
+import { FixedSizeList as List } from "react-window";
 
 const VirtualizedAlertsList: React.FC<{ alerts: Alert[] }> = ({ alerts }) => {
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => (
+  const Row = ({
+    index,
+    style,
+  }: {
+    index: number;
+    style: React.CSSProperties;
+  }) => (
     <div style={style}>
       <AlertCard alert={alerts[index]} />
     </div>
   );
 
   return (
-    <List
-      height={600}
-      itemCount={alerts.length}
-      itemSize={120}
-      width="100%"
-    >
+    <List height={600} itemCount={alerts.length} itemSize={120} width="100%">
       {Row}
     </List>
   );
@@ -1393,6 +1451,7 @@ const VirtualizedAlertsList: React.FC<{ alerts: Alert[] }> = ({ alerts }) => {
 ```
 
 #### 3. Memory Leaks with Socket Listeners
+
 ```typescript
 // Proper cleanup in useEffect
 useEffect(() => {
@@ -1400,28 +1459,29 @@ useEffect(() => {
     // Handle alert
   };
 
-  socketService.on('attack_detected', handleAlert);
+  socketService.on("attack_detected", handleAlert);
 
   return () => {
-    socketService.off('attack_detected', handleAlert);
+    socketService.off("attack_detected", handleAlert);
   };
 }, []); // Empty dependency array is important
 ```
 
 #### 4. State Synchronization Issues
+
 ```typescript
 // Use optimistic updates with rollback
 const blockIPOptimistic = async (ip: string) => {
   // Optimistic update
-  updateAlertStatus(ip, 'blocking');
+  updateAlertStatus(ip, "blocking");
 
   try {
     await networkService.blockIP(ip);
-    updateAlertStatus(ip, 'blocked');
+    updateAlertStatus(ip, "blocked");
   } catch (error) {
     // Rollback on error
-    updateAlertStatus(ip, 'active');
-    showError('Failed to block IP');
+    updateAlertStatus(ip, "active");
+    showError("Failed to block IP");
   }
 };
 ```
