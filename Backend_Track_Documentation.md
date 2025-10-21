@@ -639,6 +639,186 @@ async def get_network_actions(
 ):
     actions = await network_service.get_actions(active_only=active_only)
     return actions
+
+# app/api/v1/dashboard.py
+from fastapi import APIRouter, Depends, Query
+from typing import Optional
+from datetime import datetime, timedelta
+
+from app.schemas.dashboard import (
+    DashboardStatsResponse,
+    AlertsTimelineResponse,
+    AttackTypesResponse,
+    SeverityOverTimeResponse,
+    NetworkTopologyResponse,
+    TopProtocolsResponse,
+    NetworkSecurityResponse,
+    BlockedIPsResponse,
+    BlockedPortsResponse,
+    LiveAlertsResponse,
+    SystemHealthResponse
+)
+from app.services.dashboard_service import DashboardService
+from app.core.auth import require_permission
+from app.models.user import User
+
+router = APIRouter()
+
+@router.get("/stats", response_model=DashboardStatsResponse)
+async def get_dashboard_stats(
+    time_range: str = Query("24h", regex="^(1h|6h|24h|7d|30d|90d)$"),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get comprehensive dashboard statistics including:
+    - KPI cards (Active Threats, Blocked IPs, Blocked Ports, Response Time)
+    - Alerts timeline data
+    - Attack types distribution
+    - Severity levels over time
+    - Network topology
+    - Top protocols
+    - Network security overview
+    - Recent blocked IPs/Ports
+    - Live alerts feed
+    - System health metrics
+    """
+    stats = await dashboard_service.get_comprehensive_stats(time_range)
+    return stats
+
+@router.get("/alerts/timeline", response_model=AlertsTimelineResponse)
+async def get_alerts_timeline(
+    time_range: str = Query("24h"),
+    interval: str = Query("1h", regex="^(5m|15m|1h|6h|1d)$"),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get alerts timeline data grouped by severity levels.
+    Returns time-series data for Critical, High, Medium, Low alerts.
+    """
+    timeline = await dashboard_service.get_alerts_timeline(time_range, interval)
+    return timeline
+
+@router.get("/attacks/distribution", response_model=AttackTypesResponse)
+async def get_attack_distribution(
+    time_range: str = Query("24h"),
+    limit: int = Query(10, ge=5, le=20),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get attack types distribution with priority breakdown.
+    Returns percentages and counts for each attack type with severity priorities.
+    """
+    distribution = await dashboard_service.get_attack_distribution(time_range, limit)
+    return distribution
+
+@router.get("/severity/timeline", response_model=SeverityOverTimeResponse)
+async def get_severity_timeline(
+    time_range: str = Query("24h"),
+    interval: str = Query("1h"),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get severity levels over time for trend analysis.
+    Returns time-series data showing High, Medium, Low severity counts.
+    """
+    severity_data = await dashboard_service.get_severity_timeline(time_range, interval)
+    return severity_data
+
+@router.get("/network/topology", response_model=NetworkTopologyResponse)
+async def get_network_topology(
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get real-time network topology with active threats visualization.
+    Returns nodes, connections, and active threat indicators.
+    """
+    topology = await dashboard_service.get_network_topology()
+    return topology
+
+@router.get("/protocols/top", response_model=TopProtocolsResponse)
+async def get_top_protocols(
+    time_range: str = Query("24h"),
+    limit: int = Query(10, ge=5, le=20),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get top network protocols with connection counts, bandwidth, and attack statistics.
+    Returns protocol name, connection count, percentage, bandwidth usage, attacks count.
+    """
+    protocols = await dashboard_service.get_top_protocols(time_range, limit)
+    return protocols
+
+@router.get("/network/security", response_model=NetworkSecurityResponse)
+async def get_network_security(
+    time_range: str = Query("24h"),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get network security overview with statistics.
+    Returns attacked ports, traffic analysis, blocked connections, and system health.
+    """
+    security_data = await dashboard_service.get_network_security(time_range)
+    return security_data
+
+@router.get("/blocked-ips/recent", response_model=BlockedIPsResponse)
+async def get_recent_blocked_ips(
+    limit: int = Query(10, ge=5, le=50),
+    status: Optional[str] = Query(None, regex="^(active|expired|all)$"),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get recent blocked IP addresses with details.
+    Returns IP, block time, reason, duration type, status.
+    """
+    blocked_ips = await dashboard_service.get_recent_blocked_ips(limit, status)
+    return blocked_ips
+
+@router.get("/blocked-ports", response_model=BlockedPortsResponse)
+async def get_blocked_ports(
+    status: Optional[str] = Query(None, regex="^(active|inactive|all)$"),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get blocked ports list with protocol and statistics.
+    Returns port number, protocol, reason, attacks blocked count, status.
+    """
+    blocked_ports = await dashboard_service.get_blocked_ports(status)
+    return blocked_ports
+
+@router.get("/alerts/live", response_model=LiveAlertsResponse)
+async def get_live_alerts(
+    limit: int = Query(15, ge=5, le=50),
+    severity: Optional[str] = Query(None),
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get live alerts feed for real-time monitoring.
+    Returns recent alerts with severity, type, source, target, timestamp.
+    """
+    live_alerts = await dashboard_service.get_live_alerts(limit, severity)
+    return live_alerts
+
+@router.get("/system/health", response_model=SystemHealthResponse)
+async def get_system_health(
+    current_user: User = Depends(require_permission("view_alerts")),
+    dashboard_service: DashboardService = Depends()
+):
+    """
+    Get system health metrics for monitoring.
+    Returns CPU, Memory, Storage, Network, Database, AI Engine status and metrics.
+    """
+    health = await dashboard_service.get_system_health()
+    return health
 ```
 
 ### Real-time Communication (Socket.IO)

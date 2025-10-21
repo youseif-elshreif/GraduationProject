@@ -375,15 +375,112 @@ SELECT DISTINCT
     executed_at as blocked_at,
     expires_at,
     parameters->>'reason' as reason,
+    parameters->>'duration_type' as duration_type,
+    CASE
+        WHEN expires_at IS NULL THEN 'permanent'
+        WHEN expires_at > NOW() THEN 'temporary'
+        ELSE 'expired'
+    END as duration,
     CASE
         WHEN expires_at IS NULL THEN true
         WHEN expires_at > NOW() THEN true
         ELSE false
-    END as is_active
+    END as is_active,
+    CASE
+        WHEN expires_at IS NOT NULL AND expires_at > NOW() THEN
+            EXTRACT(EPOCH FROM (expires_at - NOW()))::INTEGER
+        ELSE NULL
+    END as remaining_seconds
 FROM actions
 WHERE action_type = 'block_ip'
+  AND status = 'executed';
+
+-- Blocked Ports view with statistics
+CREATE VIEW blocked_ports_view AS
+SELECT
+    target_value::INTEGER as port,
+    parameters->>'protocol' as protocol,
+    parameters->>'reason' as reason,
+    COUNT(DISTINCT na.flow_id) as attacks_blocked,
+    executed_at as blocked_at,
+    CASE
+        WHEN expires_at IS NULL OR expires_at > NOW() THEN 'active'
+        ELSE 'inactive'
+    END as status
+FROM actions a
+LEFT JOIN (
+    SELECT flow_id, dst_port
+    FROM network_flows nf
+    WHERE created_at >= a.executed_at
+) na ON na.dst_port = target_value::INTEGER
+WHERE action_type = 'block_port'
   AND status = 'executed'
-  AND (expires_at IS NULL OR expires_at > NOW());
+GROUP BY target_value, parameters, executed_at, expires_at;
+
+-- Dashboard Statistics Views
+CREATE VIEW dashboard_kpi_stats AS
+SELECT
+    (SELECT COUNT(*) FROM alerts WHERE status = 'active') as active_threats,
+    (SELECT COUNT(*) FROM blocked_ips WHERE is_active = true) as blocked_ips_total,
+    (SELECT COUNT(*) FROM blocked_ips
+     WHERE blocked_at >= NOW() - INTERVAL '1 day' AND is_active = true) as blocked_ips_today,
+    (SELECT COUNT(*) FROM blocked_ports_view WHERE status = 'active') as blocked_ports_total,
+    (SELECT port FROM blocked_ports_view
+     WHERE status = 'active'
+     ORDER BY attacks_blocked DESC LIMIT 1) as top_targeted_port,
+    (SELECT AVG(response_time_ms) FROM system_logs
+     WHERE created_at >= NOW() - INTERVAL '5 minutes' AND response_time_ms IS NOT NULL) as avg_response_time;
+
+-- Network Security Overview statistics
+CREATE MATERIALIZED VIEW network_security_stats AS
+SELECT
+    COUNT(DISTINCT f.dst_port) as total_targeted_ports,
+    COUNT(DISTINCT CASE WHEN a.id IS NOT NULL THEN f.dst_port END) as attacked_ports,
+    COUNT(DISTINCT f.src_ip) as unique_attack_sources,
+    COUNT(DISTINCT f.dst_ip) as unique_targets,
+    SUM(f.total_bytes) as total_blocked_traffic,
+    COUNT(DISTINCT a.id) as total_blocked_connections,
+    AVG(f.duration) as avg_connection_duration,
+    MAX(f.timestamp) as last_attack_time
+FROM network_flows f
+LEFT JOIN alerts a ON a.flow_id = f.id
+WHERE f.timestamp >= NOW() - INTERVAL '24 hours';
+
+-- Network Protocols statistics
+CREATE MATERIALIZED VIEW protocol_statistics AS
+SELECT
+    f.protocol,
+    COUNT(*) as total_connections,
+    COUNT(DISTINCT f.src_ip) as unique_sources,
+    COUNT(DISTINCT f.dst_ip) as unique_destinations,
+    SUM(f.total_bytes) as total_bandwidth,
+    COUNT(DISTINCT a.id) as total_attacks,
+    CASE
+        WHEN COUNT(DISTINCT a.id) > 1000 THEN 'high'
+        WHEN COUNT(DISTINCT a.id) > 100 THEN 'suspicious'
+        ELSE 'normal'
+    END as status,
+    MAX(f.timestamp) as last_seen
+FROM network_flows f
+LEFT JOIN alerts a ON a.flow_id = f.id
+WHERE f.timestamp >= NOW() - INTERVAL '24 hours'
+GROUP BY f.protocol;
+
+CREATE UNIQUE INDEX idx_protocol_stats_protocol ON protocol_statistics(protocol);
+
+-- Refresh function for materialized views
+CREATE OR REPLACE FUNCTION refresh_dashboard_views()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY network_security_stats;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY protocol_statistics;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Schedule automatic refresh (every 15 minutes)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+SELECT cron.schedule('refresh-dashboard-views', '*/15 * * * *', 'SELECT refresh_dashboard_views()');
+
 
 -- Action history for auditing
 CREATE TABLE action_history (

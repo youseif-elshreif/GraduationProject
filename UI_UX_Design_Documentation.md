@@ -155,47 +155,140 @@
 #### Header Section:
 
 - **Navigation Bar**: قائمة أفقية بالصفحات الرئيسية
-- **Search Bar**: بحث global في النظام
-- **Notifications**: جرس التنبيهات مع عدد الإشعارات الجديدة
-- **User Menu**: صورة المستخدم مع dropdown menu
-- **System Status**: مؤشر حالة النظام (green/yellow/red)
+- **Global Search Bar**: بحث global في النظام (Ctrl+K)
+- **Notifications Bell**: جرس التنبيهات مع عدد الإشعارات الجديدة + dropdown
+- **User Menu**: صورة المستخدم مع dropdown menu (Profile, Settings, Logout)
+- **System Status Indicator**: مؤشر حالة النظام (green/yellow/red dot)
 
-#### Main Content Area:
+#### KPI Cards Section (في صف واحد - 4 cards):
 
-- **KPI Cards Section**: 4-6 cards تظهر أهم المؤشرات:
+**1. Active Threats Card**:
 
-  - عدد التهديدات النشطة
-  - حركة الشبكة الحالية
-  - عدد الـ alerts الجديدة
-  - حالة النظام العامة
-  - زمن الاستجابة
-  - عدد الـ IPs المحظورة
+- رقم كبير للتهديدات النشطة
+- تغيير عن آخر ساعة (+5 ↑) مع سهم ملون
+- أيقونة shield مع لون حسب الحالة
+- Sparkline chart صغير يظهر الاتجاه
+- Clickable → ينقل لصفحة Threats
 
-- **Real-time Threat Map**: خريطة أو network diagram يظهر:
+**2. Blocked IPs Card**:
 
-  - التهديدات الحية
-  - اتجاه الهجمات
-  - الـ nodes المتأثرة
-  - Traffic flow
+- عدد الـ IPs المحظورة حالياً
+- عدد الـ IPs المحظورة اليوم
+- أيقونة block
+- Link "View All"
 
-- **Live Alerts Panel**: قائمة بآخر التنبيهات:
+**3. Blocked Ports Card**:
 
-  - نوع التهديد
-  - وقت الحدوث
-  - مصدر التهديد
-  - مستوى الخطورة
+- عدد المنافذ المحظورة
+- أكثر منفذ مستهدف
+- أيقونة port
+- Link "Manage"
+
+**4. Response Time Card**:
+
+- متوسط زمن الرد (بالثواني/milliseconds)
+- مقارنة مع المعيار
+- أيقونة timer
+- Color coding (أخضر/أصفر/أحمر)
+
+#### Row 1: Timeline & Distribution (تقسيم 60/40):
+
+**Alerts Timeline Chart** (يسار - أكبر):
+
+- Line/Area Chart متعدد الخطوط
+- 4 خطوط: Critical (أحمر), High (برتقالي), Medium (أصفر), Low (أزرق)
+- Time selector: 1h/6h/24h/7d/30d/Custom
+- Interactive tooltips
+- Legend مع checkboxes
+- **زر "View All Alerts"** → يفتح Modal كبير:
+  - جدول بكل التنبيهات
+  - Filtering و Sorting
+  - Export (CSV, PDF)
   - Quick actions
 
-- **Traffic Analysis Chart**: جراف يظهر:
-  - حركة الشبكة عبر الزمن
-  - التهديدات المكتشفة
-  - المقارنة مع الفترات السابقة
+**Attack Types Distribution** (يمين):
 
-#### Sidebar (Optional):
+- Donut/Pie Chart تفاعلي
+- نسب مئوية لكل نوع هجوم
+- Center: إجمالي الهجمات
+- Legend مع النسب والأعداد
+- Priority Breakdown أسفله:
+  - Critical: X, High: X, Medium: X, Low: X
 
-- **Quick Stats**: إحصائيات سريعة
-- **System Health**: صحة مكونات النظام
-- **Recent Activity**: آخر الأنشطة
+#### Row 2: Severity & Network (تقسيم 50/50):
+
+**Severity Levels Over Time** (يسار):
+
+- Multi-line Chart بـ 3 خطوط (High/Medium/Low)
+- Stacked Area option
+- Time synced مع Alerts Timeline
+- Zoomable
+
+**Real-time Network Threat Map** (يمين):
+
+- Network Topology interactive
+- Nodes بأشكال مختلفة (Server/Workstation/Router/Firewall)
+- Connections بألوان (Normal/Suspicious/Attack/Blocked)
+- Pulse animation على nodes المهددة
+- Click على node → Popup بالتفاصيل
+- Zoom & Pan controls
+- Filter buttons
+
+#### Row 3: Protocols & Blocked Resources (تقسيم 50/50):
+
+**Top Network Protocols** (يسار):
+
+- Horizontal Bar Chart
+- Top 10 protocols (TCP, UDP, HTTP, SSH, etc.)
+- Color coding (أحمر: مشبوه, برتقالي: عالي, أخضر: عادي)
+- عدد الاتصالات والبيانات المنقولة
+- عدد الهجمات لكل protocol
+
+**Network Security Overview** (يمين):
+
+- Summary statistics للشبكة
+- Top attacked ports
+- Traffic volume indicators
+- Blocked connections count
+- Hover: عدد الاتصالات، Bandwidth، الهجمات
+
+#### Row 4: Blocking Management (تقسيم 50/50):
+
+**Blocked IPs Table** (يسار):
+
+- آخر 10 IPs محظورة
+- Columns: IP, Country, Block Time, Reason, Duration, Status, Actions
+- Auto-refresh كل 30 ثانية
+- "View All" و "Add IP" buttons
+
+**Blocked Ports Table** (يمين):
+
+- المنافذ المحظورة
+- Columns: Port, Protocol, Reason, Attacks Blocked, Status, Actions
+- Enable/Disable toggles
+- "Add Port" button
+
+#### Right Sidebar (Sticky):
+
+**Live Alerts Feed** (60% height):
+
+- Header: "Live Alerts" + Pause/Resume
+- آخر 15 تنبيه في cards صغيرة
+- Severity badge, Type, Timestamp, Source, Target
+- Quick actions: Block/Investigate/Dismiss
+- تنبيهات جديدة تنزلق من الأعلى
+- Fade in/out animation
+- Sound notification option
+- Auto-scroll
+- "View All" button
+
+**System Health Monitor** (40% height):
+
+- CPU, Memory, Storage, Network usage (progress bars)
+- Database Status
+- AI Engine Status (model, detection rate, processing speed)
+- Uptime counter
+- Real-time updates
 
 ### 3. Threat Detection Page Requirements
 

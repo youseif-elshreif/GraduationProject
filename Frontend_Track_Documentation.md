@@ -654,10 +654,116 @@ export const Card: React.FC<CardProps> = ({
 
 ```typescript
 // pages/dashboard/DashboardPage.tsx
+import { useState, useEffect } from "react";
+import { useSocket } from "@/hooks/useSocket";
+import { dashboardService } from "@/services/dashboardService";
+
+interface DashboardStats {
+  // KPI Cards
+  activeThreats: number;
+  activeThreatsChange: number;
+  blockedIPs: number;
+  blockedIPsToday: number;
+  blockedPorts: number;
+  topTargetedPort: number;
+  responseTime: number;
+  responseTimeStatus: "good" | "medium" | "slow";
+
+  // Alerts Timeline
+  alertsTimeline: {
+    timestamp: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }[];
+
+  // Attack Types
+  attackTypes: {
+    type: string;
+    count: number;
+    percentage: number;
+    priority: { critical: number; high: number; medium: number; low: number };
+  }[];
+
+  // Severity Over Time
+  severityOverTime: {
+    timestamp: string;
+    high: number;
+    medium: number;
+    low: number;
+  }[];
+
+  // Network Topology
+  networkTopology: {
+    nodes: NetworkNode[];
+    connections: NetworkConnection[];
+    threats: ActiveThreat[];
+  };
+
+  // Top Protocols
+  topProtocols: {
+    protocol: string;
+    connections: number;
+    percentage: number;
+    bandwidth: string;
+    attacks: number;
+    status: "normal" | "suspicious" | "high";
+  }[];
+
+  // Blocked IPs
+  recentBlockedIPs: {
+    ip: string;
+    blockTime: string;
+    reason: string;
+    duration: "temporary" | "permanent";
+    durationValue?: string;
+    status: "active" | "expired";
+  }[];
+
+  // Blocked Ports
+  blockedPortsList: {
+    port: number;
+    protocol: "TCP" | "UDP";
+    reason: string;
+    attacksBlocked: number;
+    status: "active" | "inactive";
+  }[];
+
+  // Live Alerts
+  liveAlerts: {
+    id: string;
+    severity: "critical" | "high" | "medium" | "low";
+    type: string;
+    timestamp: string;
+    sourceIP: string;
+    sourceLocation: string;
+    targetIP: string;
+    description: string;
+  }[];
+
+  // System Health
+  systemHealth: {
+    cpu: number;
+    memory: number;
+    storage: number;
+    networkIn: string;
+    networkOut: string;
+    databaseStatus: "connected" | "disconnected";
+    databaseResponseTime: number;
+    aiEngineStatus: "active" | "inactive";
+    detectionRate: number;
+    processingSpeed: number;
+    uptime: string;
+  };
+}
+
 export const DashboardPage: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAllAlertsModal, setShowAllAlertsModal] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -673,80 +779,399 @@ export const DashboardPage: React.FC = () => {
     };
 
     fetchDashboardStats();
+
+    // Refresh data every 30 seconds
+    const interval = setInterval(fetchDashboardStats, 30000);
+    return () => clearInterval(interval);
   }, [timeRange]);
 
-  // Real-time updates
-  useSocket("system_status", (status: SystemStatus) => {
-    setStats((prev) => (prev ? { ...prev, systemStatus: status } : null));
+  // Real-time updates via WebSocket
+  useSocket("new_alert", (alert: Alert) => {
+    if (!isPaused) {
+      setStats((prev) =>
+        prev
+          ? {
+              ...prev,
+              activeThreats: prev.activeThreats + 1,
+              liveAlerts: [alert, ...prev.liveAlerts.slice(0, 14)],
+            }
+          : null
+      );
+    }
+  });
+
+  useSocket("system_health", (health: SystemHealth) => {
+    setStats((prev) => (prev ? { ...prev, systemHealth: health } : null));
+  });
+
+  useSocket("blocked_ip", (data: BlockedIP) => {
+    setStats((prev) =>
+      prev
+        ? {
+            ...prev,
+            blockedIPs: prev.blockedIPs + 1,
+            recentBlockedIPs: [data, ...prev.recentBlockedIPs.slice(0, 9)],
+          }
+        : null
+    );
   });
 
   if (loading) return <DashboardSkeleton />;
   if (!stats) return <ErrorMessage message="Failed to load dashboard data" />;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Security Dashboard</h1>
-        <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="Total Attacks"
-          value={stats.totalAttacks}
-          change={stats.attacksChange}
-          icon={<Shield className="w-6 h-6" />}
-          color="danger"
-        />
-        <StatsCard
-          title="Blocked IPs"
-          value={stats.blockedIPs}
-          change={stats.blockedIPsChange}
-          icon={<Ban className="w-6 h-6" />}
-          color="warning"
-        />
-        <StatsCard
-          title="Network Flows"
-          value={stats.networkFlows}
-          change={stats.flowsChange}
-          icon={<Activity className="w-6 h-6" />}
-          color="primary"
-        />
-        <StatsCard
-          title="System Health"
-          value={`${Math.round(stats.systemHealth * 100)}%`}
-          change={stats.healthChange}
-          icon={<Heart className="w-6 h-6" />}
-          color="success"
-        />
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <h3 className="text-lg font-semibold mb-4">Attack Trends</h3>
-          <AttackTrendsChart data={stats.attackTrends} />
-        </Card>
-        <Card>
-          <h3 className="text-lg font-semibold mb-4">
-            Attack Types Distribution
-          </h3>
-          <AttackTypesChart data={stats.attackTypes} />
-        </Card>
-      </div>
-
-      {/* Recent Alerts */}
-      <Card>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Recent Alerts</h3>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/alerts">View All</Link>
-          </Button>
+    <div className="flex h-screen overflow-hidden">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Security Dashboard
+          </h1>
+          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
         </div>
-        <RecentAlertsList alerts={stats.recentAlerts} />
-      </Card>
+
+        {/* KPI Cards - 4 في صف واحد */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KPICard
+            title="Active Threats"
+            value={stats.activeThreats}
+            change={stats.activeThreatsChange}
+            icon={<ShieldAlert className="w-6 h-6" />}
+            color="danger"
+            sparkline={stats.alertsTimeline.map((d) => d.critical + d.high)}
+            onClick={() => navigate("/threats?status=active")}
+          />
+          <KPICard
+            title="Blocked IPs"
+            value={stats.blockedIPs}
+            subtitle={`${stats.blockedIPsToday} today`}
+            icon={<Ban className="w-6 h-6" />}
+            color="warning"
+            linkText="View All"
+            onLinkClick={() => navigate("/blocked-ips")}
+          />
+          <KPICard
+            title="Blocked Ports"
+            value={stats.blockedPorts}
+            subtitle={`Port ${stats.topTargetedPort} most targeted`}
+            icon={<Server className="w-6 h-6" />}
+            color="info"
+            linkText="Manage"
+            onLinkClick={() => navigate("/port-management")}
+          />
+          <KPICard
+            title="Response Time"
+            value={`${stats.responseTime}ms`}
+            icon={<Timer className="w-6 h-6" />}
+            color={
+              stats.responseTimeStatus === "good"
+                ? "success"
+                : stats.responseTimeStatus === "medium"
+                ? "warning"
+                : "danger"
+            }
+            subtitle={
+              stats.responseTimeStatus === "good"
+                ? "Excellent"
+                : stats.responseTimeStatus === "medium"
+                ? "Good"
+                : "Slow"
+            }
+          />
+        </div>
+
+        {/* Row 1: Alerts Timeline & Attack Types Distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Alerts Over Time</h3>
+            </CardHeader>
+            <CardBody>
+              <AlertsTimelineChart data={stats.alertsTimeline} height={300} />
+            </CardBody>
+            <CardFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAllAlertsModal(true)}
+              >
+                View All Alerts
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">
+                Attack Types Distribution
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <AttackTypesDonutChart data={stats.attackTypes} height={250} />
+              <div className="mt-4 space-y-2">
+                <h4 className="text-sm font-medium text-gray-600">
+                  Priority Breakdown
+                </h4>
+                {stats.attackTypes[0]?.priority && (
+                  <PriorityBreakdown priority={stats.attackTypes[0].priority} />
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Row 2: Severity Levels & Network Threat Map */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">
+                Severity Levels Over Time
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <SeverityLevelsChart data={stats.severityOverTime} height={300} />
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">
+                Real-time Network Threat Map
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <NetworkTopologyViewer
+                topology={stats.networkTopology}
+                height={300}
+                interactive
+              />
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Row 3: Network Security & Top Protocols */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">
+                Network Security Overview
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <NetworkSecurityOverview
+                data={stats.networkSecurity}
+                height={300}
+              />
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Top Network Protocols</h3>
+            </CardHeader>
+            <CardBody>
+              <TopProtocolsChart data={stats.topProtocols} height={300} />
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Row 4: Blocked IPs & Blocked Ports */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="flex justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Blocked IP Addresses</h3>
+                <p className="text-sm text-gray-500">
+                  {stats.blockedIPs} total
+                </p>
+              </div>
+              <Button size="sm" onClick={() => navigate("/blocked-ips/add")}>
+                Add IP
+              </Button>
+            </CardHeader>
+            <CardBody>
+              <BlockedIPsTable
+                data={stats.recentBlockedIPs}
+                compact
+                autoRefresh
+              />
+            </CardBody>
+            <CardFooter>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/blocked-ips")}
+              >
+                View All Blocked IPs
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Blocked Ports</h3>
+                <p className="text-sm text-gray-500">
+                  {stats.blockedPorts} total
+                </p>
+              </div>
+              <Button size="sm" onClick={() => navigate("/ports/add")}>
+                Add Port
+              </Button>
+            </CardHeader>
+            <CardBody>
+              <BlockedPortsTable data={stats.blockedPortsList} compact />
+            </CardBody>
+          </Card>
+        </div>
+      </div>
+
+      {/* Right Sidebar - Sticky */}
+      <aside className="w-96 border-l border-gray-200 overflow-y-auto p-4 space-y-6">
+        {/* Live Alerts Feed */}
+        <Card>
+          <CardHeader className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Live Alerts</h3>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsPaused(!isPaused)}
+              >
+                {isPaused ? <Play size={16} /> : <Pause size={16} />}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardBody className="space-y-2 max-h-96 overflow-y-auto">
+            {stats.liveAlerts.map((alert) => (
+              <AlertCard
+                key={alert.id}
+                alert={alert}
+                compact
+                onBlock={(ip) => handleBlockIP(ip)}
+                onInvestigate={(id) => navigate(`/threats/${id}`)}
+                onDismiss={(id) => handleDismissAlert(id)}
+              />
+            ))}
+          </CardBody>
+          <CardFooter>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => navigate("/alerts")}
+            >
+              View All Alerts
+            </Button>
+          </CardFooter>
+        </Card>
+
+        {/* System Health Monitor */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">System Health</h3>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            <MetricBar
+              label="CPU Usage"
+              value={stats.systemHealth.cpu}
+              status={
+                stats.systemHealth.cpu < 70
+                  ? "good"
+                  : stats.systemHealth.cpu < 85
+                  ? "warning"
+                  : "danger"
+              }
+            />
+            <MetricBar
+              label="Memory"
+              value={stats.systemHealth.memory}
+              status={
+                stats.systemHealth.memory < 70
+                  ? "good"
+                  : stats.systemHealth.memory < 85
+                  ? "warning"
+                  : "danger"
+              }
+            />
+            <MetricBar
+              label="Storage"
+              value={stats.systemHealth.storage}
+              status={
+                stats.systemHealth.storage < 70
+                  ? "good"
+                  : stats.systemHealth.storage < 85
+                  ? "warning"
+                  : "danger"
+              }
+            />
+
+            <Separator />
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Network</span>
+                <span className="font-medium">
+                  ↓ {stats.systemHealth.networkIn} / ↑{" "}
+                  {stats.systemHealth.networkOut}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Database</span>
+                <Badge
+                  variant={
+                    stats.systemHealth.databaseStatus === "connected"
+                      ? "success"
+                      : "danger"
+                  }
+                >
+                  {stats.systemHealth.databaseStatus}
+                </Badge>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">AI Engine</span>
+                <Badge
+                  variant={
+                    stats.systemHealth.aiEngineStatus === "active"
+                      ? "success"
+                      : "danger"
+                  }
+                >
+                  {stats.systemHealth.aiEngineStatus}
+                </Badge>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Detection Rate</span>
+                <span className="font-medium">
+                  {stats.systemHealth.detectionRate}%
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Processing</span>
+                <span className="font-medium">
+                  {stats.systemHealth.processingSpeed} flows/s
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Uptime</span>
+                <span className="font-medium">{stats.systemHealth.uptime}</span>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      </aside>
+
+      {/* All Alerts Modal */}
+      {showAllAlertsModal && (
+        <AllAlertsModal
+          timeRange={timeRange}
+          onClose={() => setShowAllAlertsModal(false)}
+        />
+      )}
     </div>
   );
 };
